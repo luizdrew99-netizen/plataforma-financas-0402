@@ -1,37 +1,39 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 
 export async function middleware(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   
-  const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
-  // Pegar token dos cookies
-  const token = request.cookies.get('sb-access-token')?.value
-
-  // Verificar se está autenticado
-  const { data: { user } } = await supabase.auth.getUser(token)
-
-  // Rotas públicas
-  const isAuthPage = request.nextUrl.pathname.startsWith('/auth')
-  
-  // Se não está autenticado e tenta acessar rota protegida
-  if (!user && !isAuthPage) {
-    return NextResponse.redirect(new URL('/auth', request.url))
+  // Se não tiver credenciais do Supabase, permite acesso
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return NextResponse.next()
   }
 
-  // Se está autenticado e tenta acessar página de auth
-  if (user && isAuthPage) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
-  }
+  try {
+    // Pegar todos os cookies do Supabase (formato: sb-<project-ref>-auth-token)
+    const allCookies = request.cookies.getAll()
+    const authCookie = allCookies.find(cookie => 
+      cookie.name.includes('sb-') && cookie.name.includes('-auth-token')
+    )
 
-  return NextResponse.next()
+    const isAuthenticated = !!authCookie?.value
+    const isDashboard = request.nextUrl.pathname.startsWith('/dashboard')
+    
+    // Se não está autenticado e tenta acessar dashboard, redireciona para auth
+    if (!isAuthenticated && isDashboard) {
+      return NextResponse.redirect(new URL('/auth', request.url))
+    }
+
+    return NextResponse.next()
+  } catch (err) {
+    console.error("Erro no middleware:", err)
+    return NextResponse.next()
+  }
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/dashboard/:path*',
   ],
 }
