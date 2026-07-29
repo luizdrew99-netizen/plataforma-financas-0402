@@ -1,6 +1,8 @@
 "use client"
 
-import { Bell, LayoutDashboard, Target, Calendar, TrendingUp, Menu, User, Moon, Sun, Briefcase, Building2, Receipt } from "lucide-react"
+import { useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
+import { Bell, LayoutDashboard, Target, Calendar, TrendingUp, Menu, User, Moon, Sun, Briefcase, Building2, Receipt, LogOut, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -12,17 +14,55 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Badge } from "@/components/ui/badge"
 import { useTheme } from "next-themes"
-import { UserType } from "../page"
+import { supabase } from "@/lib/supabase"
+import { parseISODate } from "@/lib/format"
+import { useFinance } from "../dashboard/finance-context"
+import type { DashboardView } from "../dashboard/page"
 
 interface DashboardHeaderProps {
-  activeView: "dashboard" | "goals" | "calendar" | "insights" | "payments"
-  setActiveView: (view: "dashboard" | "goals" | "calendar" | "insights" | "payments") => void
-  userType: UserType
-  setUserType: (type: UserType) => void
+  activeView: DashboardView
+  setActiveView: (view: DashboardView) => void
 }
 
-export function DashboardHeader({ activeView, setActiveView, userType, setUserType }: DashboardHeaderProps) {
+const NAV_ITEMS: { view: DashboardView; label: string; icon: typeof Target }[] = [
+  { view: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { view: "goals", label: "Metas", icon: Target },
+  { view: "payments", label: "Pagamentos", icon: Receipt },
+  { view: "calendar", label: "Agenda", icon: Calendar },
+  { view: "insights", label: "Insights", icon: TrendingUp },
+]
+
+export function DashboardHeader({ activeView, setActiveView }: DashboardHeaderProps) {
   const { theme, setTheme } = useTheme()
+  const router = useRouter()
+  const { profile, userType, setUserType, transactions } = useFinance()
+  const [signingOut, setSigningOut] = useState(false)
+
+  // Contador real: contas pendentes vencidas ou a vencer nos próximos 7 dias.
+  const alerts = useMemo(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const limit = new Date(today)
+    limit.setDate(limit.getDate() + 7)
+
+    return transactions.filter((t) => {
+      if (t.type !== "expense" || t.status !== "pending" || !t.due_date) return false
+      return parseISODate(t.due_date) <= limit
+    }).length
+  }, [transactions])
+
+  const handleSignOut = async () => {
+    setSigningOut(true)
+    await supabase.auth.signOut()
+    router.replace("/auth")
+    router.refresh()
+  }
+
+  const initials = (profile.full_name ?? profile.email)
+    .split(" ")
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("")
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-emerald-200/50 dark:border-emerald-900/50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl shadow-sm">
@@ -65,92 +105,82 @@ export function DashboardHeader({ activeView, setActiveView, userType, setUserTy
             </div>
 
             <nav className="hidden md:flex items-center gap-1">
-              <Button
-                variant={activeView === "dashboard" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveView("dashboard")}
-                className={`gap-2 ${activeView === "dashboard" ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
-              >
-                <LayoutDashboard className="h-4 w-4" />
-                Dashboard
-              </Button>
-              <Button
-                variant={activeView === "goals" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveView("goals")}
-                className={`gap-2 ${activeView === "goals" ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
-              >
-                <Target className="h-4 w-4" />
-                Metas
-              </Button>
-              <Button
-                variant={activeView === "payments" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveView("payments")}
-                className={`gap-2 ${activeView === "payments" ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
-              >
-                <Receipt className="h-4 w-4" />
-                Pagamentos
-              </Button>
-              <Button
-                variant={activeView === "calendar" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveView("calendar")}
-                className={`gap-2 ${activeView === "calendar" ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
-              >
-                <Calendar className="h-4 w-4" />
-                Agenda
-              </Button>
-              <Button
-                variant={activeView === "insights" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => setActiveView("insights")}
-                className={`gap-2 ${activeView === "insights" ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
-              >
-                <TrendingUp className="h-4 w-4" />
-                Insights
-              </Button>
+              {NAV_ITEMS.map(({ view, label, icon: Icon }) => (
+                <Button
+                  key={view}
+                  variant={activeView === view ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setActiveView(view)}
+                  className={`gap-2 ${activeView === view ? "bg-emerald-600 hover:bg-emerald-700" : ""}`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {label}
+                </Button>
+              ))}
             </nav>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              aria-label="Alternar tema"
               className="hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
             >
               <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
               <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
             </Button>
 
-            <Button variant="ghost" size="icon" className="relative hover:bg-emerald-100 dark:hover:bg-emerald-900/30">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setActiveView("payments")}
+              aria-label={`${alerts} contas a vencer`}
+              className="relative hover:bg-emerald-100 dark:hover:bg-emerald-900/30"
+            >
               <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-emerald-600">
-                3
-              </Badge>
+              {alerts > 0 && (
+                <Badge className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs bg-emerald-600">
+                  {alerts > 9 ? "9+" : alerts}
+                </Badge>
+              )}
             </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="hover:bg-emerald-100 dark:hover:bg-emerald-900/30">
-                  <User className="h-5 w-5" />
+                <Button variant="ghost" size="icon" aria-label="Minha conta" className="hover:bg-emerald-100 dark:hover:bg-emerald-900/30">
+                  {initials ? (
+                    <span className="text-sm font-semibold">{initials}</span>
+                  ) : (
+                    <User className="h-5 w-5" />
+                  )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel className="font-normal">
+                  <p className="font-medium truncate">
+                    {profile.full_name ?? "Minha Conta"}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {profile.email}
+                  </p>
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Perfil</DropdownMenuItem>
-                <DropdownMenuItem>Configurações</DropdownMenuItem>
-                <DropdownMenuItem>Integrações</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>Sair</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleSignOut} disabled={signingOut}>
+                  {signingOut ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <LogOut className="h-4 w-4 mr-2" />
+                  )}
+                  Sair
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild className="md:hidden">
-                <Button variant="ghost" size="icon">
+                <Button variant="ghost" size="icon" aria-label="Menu">
                   <Menu className="h-5 w-5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -166,26 +196,12 @@ export function DashboardHeader({ activeView, setActiveView, userType, setUserTy
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel>Navegação</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => setActiveView("dashboard")}>
-                  <LayoutDashboard className="h-4 w-4 mr-2" />
-                  Dashboard
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveView("goals")}>
-                  <Target className="h-4 w-4 mr-2" />
-                  Metas
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveView("payments")}>
-                  <Receipt className="h-4 w-4 mr-2" />
-                  Pagamentos
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveView("calendar")}>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Agenda
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setActiveView("insights")}>
-                  <TrendingUp className="h-4 w-4 mr-2" />
-                  Insights
-                </DropdownMenuItem>
+                {NAV_ITEMS.map(({ view, label, icon: Icon }) => (
+                  <DropdownMenuItem key={view} onClick={() => setActiveView(view)}>
+                    <Icon className="h-4 w-4 mr-2" />
+                    {label}
+                  </DropdownMenuItem>
+                ))}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

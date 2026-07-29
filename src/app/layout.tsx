@@ -27,8 +27,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // O zoom fica liberado de propósito: bloquear é uma barreira de
+  // acessibilidade para quem precisa ampliar valores e tabelas.
   themeColor: "#10b981",
 };
 
@@ -40,7 +40,12 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" suppressHydrationWarning>
       <head>
-        <Script src="/lasy-bridge.js" strategy="beforeInteractive" />
+        {/* O bridge da Lasy faz hook do console e postMessage para a janela pai.
+            Só faz sentido dentro do editor — em produção seria vazamento de
+            dados financeiros do usuário. */}
+        {process.env.NODE_ENV === "development" && (
+          <Script src="/lasy-bridge.js" strategy="beforeInteractive" />
+        )}
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />

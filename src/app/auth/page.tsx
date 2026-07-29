@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -20,6 +20,21 @@ export default function AuthPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [resetEmailSent, setResetEmailSent] = useState(false)
   const [showResetPassword, setShowResetPassword] = useState(false)
+  const [redirectTo, setRedirectTo] = useState("/dashboard")
+
+  // Lido de `window` em vez de `useSearchParams()` para não exigir um limite
+  // de Suspense em volta da página inteira.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+
+    const target = params.get("redirectTo")
+    if (target?.startsWith("/") && !target.startsWith("//")) {
+      setRedirectTo(target)
+    }
+
+    const callbackError = params.get("error")
+    if (callbackError) setError(callbackError)
+  }, [])
 
   // Validação de email em tempo real
   const [emailError, setEmailError] = useState<string | null>(null)
@@ -89,6 +104,7 @@ export default function AuthPage() {
         email,
         password,
         options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             full_name: fullName,
             user_type: userType,
@@ -98,24 +114,20 @@ export default function AuthPage() {
 
       if (signUpError) throw signUpError
 
-      if (data.user) {
-        // Criar perfil manualmente
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert({
-            id: data.user.id,
-            email: data.user.email!,
-            full_name: fullName,
-            user_type: userType,
-          })
-
-        if (profileError) throw profileError
-
+      // O perfil é criado pelo trigger `on_auth_user_created` no banco. Fazer o
+      // insert aqui falhava quando a confirmação de email está ligada, porque
+      // nesse momento ainda não existe sessão e o RLS bloqueia a escrita.
+      if (data.session) {
         setSuccess("Conta criada com sucesso! Redirecionando...")
-        setTimeout(() => router.push("/dashboard"), 2000)
+        router.push(redirectTo)
+        router.refresh()
+      } else {
+        setSuccess(
+          "Conta criada! Enviamos um link de confirmação para o seu email."
+        )
       }
-    } catch (err: any) {
-      setError(err.message || "Erro ao criar conta")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao criar conta")
     } finally {
       setLoading(false)
     }
@@ -146,9 +158,12 @@ export default function AuthPage() {
       if (signInError) throw signInError
 
       setSuccess("Login realizado com sucesso! Redirecionando...")
-      setTimeout(() => router.push("/dashboard"), 1000)
-    } catch (err: any) {
-      setError(err.message || "Email ou senha incorretos")
+      // `refresh()` faz o servidor reler os cookies de sessão recém-gravados,
+      // senão o middleware ainda enxerga o usuário como deslogado.
+      router.push(redirectTo)
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Email ou senha incorretos")
     } finally {
       setLoading(false)
     }
@@ -171,15 +186,17 @@ export default function AuthPage() {
 
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
       })
 
       if (resetError) throw resetError
 
       setResetEmailSent(true)
       setSuccess("Email de recuperação enviado! Verifique sua caixa de entrada.")
-    } catch (err: any) {
-      setError(err.message || "Erro ao enviar email de recuperação")
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Erro ao enviar email de recuperação"
+      )
     } finally {
       setLoading(false)
     }
@@ -193,13 +210,15 @@ export default function AuthPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          // O provedor devolve um `code` que precisa ser trocado por sessão no
+          // servidor — apontar direto para /dashboard pulava essa etapa.
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
         },
       })
 
       if (error) throw error
-    } catch (err: any) {
-      setError(err.message || "Erro ao fazer login com Google")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao fazer login com Google")
       setLoading(false)
     }
   }

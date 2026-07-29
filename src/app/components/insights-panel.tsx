@@ -1,79 +1,94 @@
 "use client"
 
-import { TrendingUp, TrendingDown, Lightbulb, AlertCircle, CheckCircle, ArrowRight } from "lucide-react"
+import { useMemo } from "react"
+import { TrendingUp, TrendingDown, Lightbulb, AlertCircle, CheckCircle, Info } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  breakdownByCategory,
+  buildInsights,
+  previousMonth,
+  summarizeMonth,
+  type InsightTone,
+} from "@/lib/finance"
+import { formatCurrency, formatPercent } from "@/lib/format"
+import { useFinance } from "../dashboard/finance-context"
+
+const TONE_META: Record<
+  InsightTone,
+  { icon: typeof Info; color: string }
+> = {
+  success: { icon: CheckCircle, color: "from-emerald-500 to-emerald-600" },
+  warning: { icon: AlertCircle, color: "from-orange-500 to-orange-600" },
+  tip: { icon: Lightbulb, color: "from-blue-500 to-blue-600" },
+  info: { icon: Info, color: "from-purple-500 to-purple-600" },
+}
 
 export function InsightsPanel() {
-  const insights = [
-    {
-      id: "1",
-      type: "success",
-      title: "Economia acima da meta!",
-      description: "Você economizou 8% a mais que o planejado este mês. Continue assim!",
-      icon: CheckCircle,
-      color: "from-emerald-500 to-emerald-600",
-      action: "Ver detalhes"
-    },
-    {
-      id: "2",
-      type: "warning",
-      title: "Despesas com alimentação aumentaram",
-      description: "Suas despesas com alimentação subiram 15% em relação ao mês passado.",
-      icon: AlertCircle,
-      color: "from-orange-500 to-orange-600",
-      action: "Analisar gastos"
-    },
-    {
-      id: "3",
-      type: "tip",
-      title: "Oportunidade de investimento",
-      description: "Com base no seu perfil, você pode investir R$ 500 em renda fixa este mês.",
-      icon: Lightbulb,
-      color: "from-blue-500 to-blue-600",
-      action: "Ver sugestões"
-    },
-    {
-      id: "4",
-      type: "info",
-      title: "Meta de viagem no prazo",
-      description: "Mantendo o ritmo atual, você atingirá sua meta de viagem 2 meses antes!",
-      icon: TrendingUp,
-      color: "from-purple-500 to-purple-600",
-      action: "Ver progresso"
-    }
-  ]
+  const { userType, transactions, goals, budgets, loading } = useFinance()
 
-  const recommendations = [
-    {
-      title: "Reduza gastos com delivery",
-      description: "Economize até R$ 400/mês cozinhando em casa",
-      savings: 400,
-      impact: "high"
-    },
-    {
-      title: "Cancele assinaturas não utilizadas",
-      description: "3 serviços sem uso nos últimos 60 dias",
-      savings: 120,
-      impact: "medium"
-    },
-    {
-      title: "Aproveite cashback",
-      description: "Ative cashback em compras do supermercado",
-      savings: 80,
-      impact: "low"
-    }
-  ]
+  const insights = useMemo(
+    () => buildInsights(transactions, goals, budgets, userType),
+    [transactions, goals, budgets, userType]
+  )
 
-  const categoryAnalysis = [
-    { name: "Alimentação", spent: 1200, budget: 1000, percentage: 120 },
-    { name: "Transporte", spent: 450, budget: 600, percentage: 75 },
-    { name: "Lazer", spent: 300, budget: 400, percentage: 75 },
-    { name: "Saúde", spent: 200, budget: 300, percentage: 67 },
-    { name: "Educação", spent: 500, budget: 500, percentage: 100 }
-  ]
+  const categories = useMemo(
+    () => breakdownByCategory(transactions, budgets),
+    [transactions, budgets]
+  )
+
+  // Projeção anual a partir da média mensal observada, não de um número fixo.
+  const projection = useMemo(() => {
+    const now = new Date()
+    const months = new Set(
+      transactions.map((t) => (t.due_date ?? t.created_at).slice(0, 7))
+    )
+    const monthCount = Math.max(months.size, 1)
+
+    const totalIncome = transactions
+      .filter((t) => t.type === "income")
+      .reduce((sum, t) => sum + Number(t.amount), 0)
+    const totalExpense = transactions
+      .filter((t) => t.type === "expense")
+      .reduce((sum, t) => sum + Number(t.amount), 0)
+
+    return {
+      monthCount,
+      income: (totalIncome / monthCount) * 12,
+      expense: (totalExpense / monthCount) * 12,
+      balance: ((totalIncome - totalExpense) / monthCount) * 12,
+      current: summarizeMonth(transactions, now),
+      previous: summarizeMonth(transactions, previousMonth(now)),
+    }
+  }, [transactions])
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    )
+  }
+
+  if (transactions.length === 0) {
+    return (
+      <Card className="border-dashed">
+        <CardContent className="py-16 text-center space-y-3">
+          <TrendingUp className="h-10 w-10 text-muted-foreground mx-auto" />
+          <div>
+            <p className="font-medium">Ainda não há dados para analisar</p>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Registre receitas e despesas em Pagamentos. Os insights são
+              calculados a partir dos seus lançamentos reais — nada é estimado
+              antes disso.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -84,30 +99,33 @@ export function InsightsPanel() {
             Insights Inteligentes
           </CardTitle>
           <CardDescription>
-            Análises automáticas baseadas no seu comportamento financeiro
+            Análises calculadas a partir dos seus lançamentos
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {insights.length === 0 && (
+            <p className="text-sm text-muted-foreground py-4">
+              Nada relevante a destacar neste mês. Continue registrando seus
+              lançamentos para análises mais precisas.
+            </p>
+          )}
+
           {insights.map((insight) => {
-            const Icon = insight.icon
+            const { icon: Icon, color } = TONE_META[insight.tone]
             return (
               <div
                 key={insight.id}
                 className="p-4 rounded-lg bg-white dark:bg-slate-900 border hover:shadow-lg transition-all duration-300"
               >
                 <div className="flex items-start gap-4">
-                  <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${insight.color} flex items-center justify-center flex-shrink-0`}>
+                  <div className={`h-12 w-12 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center flex-shrink-0`}>
                     <Icon className="h-6 w-6 text-white" />
                   </div>
                   <div className="flex-1">
                     <h3 className="font-semibold mb-1">{insight.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-3">
+                    <p className="text-sm text-muted-foreground">
                       {insight.description}
                     </p>
-                    <Button variant="outline" size="sm" className="gap-2">
-                      {insight.action}
-                      <ArrowRight className="h-3 w-3" />
-                    </Button>
                   </div>
                 </div>
               </div>
@@ -116,124 +134,127 @@ export function InsightsPanel() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card className="border-0 bg-white dark:bg-slate-900">
-          <CardHeader>
-            <CardTitle className="text-lg">Recomendações de Economia</CardTitle>
-            <CardDescription>
-              Sugestões personalizadas para otimizar suas finanças
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {recommendations.map((rec, index) => {
-              const impactColors = {
-                high: "from-emerald-500 to-emerald-600",
-                medium: "from-blue-500 to-blue-600",
-                low: "from-purple-500 to-purple-600"
-              }
+      <Card className="border-0 bg-white dark:bg-slate-900">
+        <CardHeader>
+          <CardTitle className="text-lg">Gastos por Categoria</CardTitle>
+          <CardDescription>
+            {budgets.length > 0
+              ? "Comparação entre gastos do mês e orçamento planejado"
+              : "Distribuição dos gastos do mês. Defina orçamentos por categoria para acompanhar limites."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {categories.length === 0 && (
+            <p className="text-sm text-muted-foreground py-4">
+              Nenhuma despesa registrada neste mês.
+            </p>
+          )}
 
-              return (
-                <div
-                  key={index}
-                  className="p-4 rounded-lg border bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 hover:shadow-md transition-all duration-300"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <h4 className="font-medium">{rec.title}</h4>
-                    <Badge className={`bg-gradient-to-r ${impactColors[rec.impact as keyof typeof impactColors]} text-white border-0`}>
-                      R$ {rec.savings}
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{rec.description}</p>
-                </div>
-              )
-            })}
-          </CardContent>
-        </Card>
+          {categories.map((category) => {
+            const isOverBudget = category.percentage !== null && category.percentage > 100
+            const maxSpent = Math.max(...categories.map((c) => c.spent), 1)
+            // Sem orçamento definido, a barra mostra o peso relativo da
+            // categoria no total gasto.
+            const barValue =
+              category.percentage ?? (category.spent / maxSpent) * 100
 
-        <Card className="border-0 bg-white dark:bg-slate-900">
-          <CardHeader>
-            <CardTitle className="text-lg">Análise por Categoria</CardTitle>
-            <CardDescription>
-              Comparação entre gastos e orçamento planejado
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {categoryAnalysis.map((category, index) => {
-              const isOverBudget = category.percentage > 100
-              return (
-                <div key={index} className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="font-medium">{category.name}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={isOverBudget ? "text-orange-600" : "text-muted-foreground"}>
-                        R$ {category.spent} / R$ {category.budget}
-                      </span>
-                      {isOverBudget ? (
-                        <TrendingUp className="h-4 w-4 text-orange-600" />
-                      ) : (
-                        <TrendingDown className="h-4 w-4 text-emerald-600" />
-                      )}
-                    </div>
-                  </div>
-                  <Progress
-                    value={category.percentage}
-                    className={`h-2 ${isOverBudget ? "[&>div]:bg-orange-500" : "[&>div]:bg-emerald-500"}`}
-                  />
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">
-                      {category.percentage}% do orçamento
+            return (
+              <div key={category.category} className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">{category.category}</span>
+                  <div className="flex items-center gap-2">
+                    <span className={isOverBudget ? "text-orange-600" : "text-muted-foreground"}>
+                      {formatCurrency(category.spent)}
+                      {category.budget !== null && ` / ${formatCurrency(category.budget)}`}
                     </span>
-                    {isOverBudget && (
-                      <span className="text-orange-600 font-medium">
-                        +R$ {category.spent - category.budget} acima
-                      </span>
+                    {isOverBudget ? (
+                      <TrendingUp className="h-4 w-4 text-orange-600" />
+                    ) : (
+                      <TrendingDown className="h-4 w-4 text-emerald-600" />
                     )}
                   </div>
                 </div>
-              )
-            })}
-          </CardContent>
-        </Card>
-      </div>
+                <Progress
+                  value={Math.min(barValue, 100)}
+                  className={`h-2 ${isOverBudget ? "[&>div]:bg-orange-500" : "[&>div]:bg-emerald-500"}`}
+                />
+                {category.percentage !== null && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">
+                      {formatPercent(category.percentage, 0)} do orçamento
+                    </span>
+                    {isOverBudget && (
+                      <span className="text-orange-600 font-medium">
+                        {formatCurrency(category.spent - category.budget!)} acima
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </CardContent>
+      </Card>
 
       <Card className="border-0 bg-white dark:bg-slate-900">
         <CardHeader>
           <CardTitle className="text-lg">Projeção Anual</CardTitle>
           <CardDescription>
-            Estimativa baseada no seu comportamento atual
+            Extrapolação da sua média mensal ao longo de {projection.monthCount}{" "}
+            {projection.monthCount === 1 ? "mês registrado" : "meses registrados"}
+            {projection.monthCount < 3 && " — a precisão melhora com mais histórico"}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 rounded-lg bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-5 w-5 text-emerald-600" />
-                <span className="text-sm font-medium text-emerald-600">Receita Anual</span>
-              </div>
-              <p className="text-2xl font-bold">R$ 102.000</p>
-              <p className="text-xs text-muted-foreground mt-1">+8% vs ano anterior</p>
-            </div>
-
-            <div className="p-4 rounded-lg bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingDown className="h-5 w-5 text-orange-600" />
-                <span className="text-sm font-medium text-orange-600">Despesas Anuais</span>
-              </div>
-              <p className="text-2xl font-bold">R$ 62.880</p>
-              <p className="text-xs text-muted-foreground mt-1">-3% vs ano anterior</p>
-            </div>
-
-            <div className="p-4 rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-5 w-5 text-blue-600" />
-                <span className="text-sm font-medium text-blue-600">Economia Anual</span>
-              </div>
-              <p className="text-2xl font-bold">R$ 39.120</p>
-              <p className="text-xs text-muted-foreground mt-1">+18% vs ano anterior</p>
-            </div>
+            <ProjectionTile
+              label={userType === "clt" ? "Receita Anual" : "Faturamento Anual"}
+              value={projection.income}
+              icon={TrendingUp}
+              className="from-emerald-50 to-emerald-100 dark:from-emerald-950 dark:to-emerald-900"
+              accent="text-emerald-600"
+            />
+            <ProjectionTile
+              label="Despesas Anuais"
+              value={projection.expense}
+              icon={TrendingDown}
+              className="from-orange-50 to-orange-100 dark:from-orange-950 dark:to-orange-900"
+              accent="text-orange-600"
+            />
+            <ProjectionTile
+              label={userType === "clt" ? "Economia Anual" : "Lucro Anual"}
+              value={projection.balance}
+              icon={CheckCircle}
+              className="from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900"
+              accent="text-blue-600"
+            />
           </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function ProjectionTile({
+  label,
+  value,
+  icon: Icon,
+  className,
+  accent,
+}: {
+  label: string
+  value: number
+  icon: typeof TrendingUp
+  className: string
+  accent: string
+}) {
+  return (
+    <div className={`p-4 rounded-lg bg-gradient-to-br ${className}`}>
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className={`h-5 w-5 ${accent}`} />
+        <span className={`text-sm font-medium ${accent}`}>{label}</span>
+      </div>
+      <p className="text-2xl font-bold">{formatCurrency(value)}</p>
     </div>
   )
 }

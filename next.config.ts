@@ -1,226 +1,65 @@
 import type { NextConfig } from "next";
 
+const isDev = process.env.NODE_ENV === "development";
+
 const nextConfig: NextConfig = {
   devIndicators: false, // Remove widget de desenvolvimento Next.js
-  
-  // Ignorar erros durante build (compatibilidade Vercel)
+
+  // A checagem de tipos e o lint rodam no build. Se algo quebrar aqui, é bug
+  // real — corrija em vez de reativar o `ignore`.
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
-  
-  // Configuração de imagens para principais provedores
+
   images: {
     remotePatterns: [
-      // Unsplash - Banco de imagens gratuitas
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'unsplash.com',
-      },
-      
-      // Supabase Storage
-      {
-        protocol: 'https',
-        hostname: '*.supabase.co',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.supabase.com',
-      },
-      
-      // Firebase Storage
-      {
-        protocol: 'https',
-        hostname: 'firebasestorage.googleapis.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'storage.googleapis.com',
-      },
-      
-      // AWS S3 e CloudFront
-      {
-        protocol: 'https',
-        hostname: '*.amazonaws.com',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.cloudfront.net',
-      },
-      {
-        protocol: 'https',
-        hostname: 's3.amazonaws.com',
-      },
-      
-      // Vercel Blob
-      {
-        protocol: 'https',
-        hostname: '*.vercel-storage.com',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.public.blob.vercel-storage.com',
-      },
-      
-      // Cloudinary
-      {
-        protocol: 'https',
-        hostname: 'res.cloudinary.com',
-      },
-      {
-        protocol: 'https',
-        hostname: '*.cloudinary.com',
-      },
-      
-      // Pexels - Banco de imagens gratuitas
-      {
-        protocol: 'https',
-        hostname: 'images.pexels.com',
-      },
-      
-      // Pixabay - Banco de imagens gratuitas
-      {
-        protocol: 'https',
-        hostname: 'pixabay.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'cdn.pixabay.com',
-      },
-      
-      // GitHub (avatares, imagens de repos)
-      {
-        protocol: 'https',
-        hostname: 'github.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'avatars.githubusercontent.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'raw.githubusercontent.com',
-      },
-      
-      // Imgur
-      {
-        protocol: 'https',
-        hostname: 'i.imgur.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'imgur.com',
-      },
-      
-      // Google Drive
-      {
-        protocol: 'https',
-        hostname: 'drive.google.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'lh3.googleusercontent.com',
-      },
-      
-      // YouTube thumbnails
-      {
-        protocol: 'https',
-        hostname: 'img.youtube.com',
-      },
-      {
-        protocol: 'https',
-        hostname: 'i.ytimg.com',
-      },
-      
-      // Vimeo thumbnails
-      {
-        protocol: 'https',
-        hostname: 'i.vimeocdn.com',
-      },
-      
-      // CDNs populares
-      {
-        protocol: 'https',
-        hostname: 'cdn.jsdelivr.net',
-      },
-      {
-        protocol: 'https',
-        hostname: 'unpkg.com',
-      },
-      
-      // Outros provedores populares
-      {
-        protocol: 'https',
-        hostname: '*.uploadthing.com', // UploadThing
-      },
-      {
-        protocol: 'https',
-        hostname: '*.imagekit.io', // ImageKit
-      },
-      {
-        protocol: 'https',
-        hostname: '*.sanity.io', // Sanity CMS
-      },
-      {
-        protocol: 'https',
-        hostname: 'assets.vercel.com', // Vercel assets
-      },
-      
-      // Para desenvolvimento local
-      {
-        protocol: 'http',
-        hostname: 'localhost',
-      },
-      {
-        protocol: 'https',
-        hostname: 'localhost',
-      },
+      // Supabase Storage (avatares, anexos de comprovantes)
+      { protocol: "https", hostname: "*.supabase.co" },
+      // Avatares de contas Google (login OAuth)
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+      // Bancos de imagem usados na landing
+      { protocol: "https", hostname: "images.unsplash.com" },
+      { protocol: "https", hostname: "images.pexels.com" },
+      // Blob storage da Vercel
+      { protocol: "https", hostname: "*.public.blob.vercel-storage.com" },
+      // Desenvolvimento local
+      ...(isDev ? [{ protocol: "http" as const, hostname: "localhost" }] : []),
     ],
-    
-    // Formatos de imagem suportados
-    formats: ['image/webp', 'image/avif'],
-    
-    // Tamanhos otimizados para diferentes dispositivos
+    formats: ["image/webp", "image/avif"],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
-  
-  // Configuração experimental para melhor performance
+
   experimental: {
-    optimizePackageImports: ['lucide-react', '@radix-ui/react-icons'],
+    optimizePackageImports: ["lucide-react"],
   },
-  
-  // Headers CORS para permitir acesso da plataforma Lasy
+
+  // Headers de segurança. Note que NÃO existe `Access-Control-Allow-Origin: *`:
+  // esta é uma aplicação financeira autenticada por cookie, e liberar CORS para
+  // qualquer origem com credenciais permitiria que outro site lesse os dados do
+  // usuário logado.
   async headers() {
     return [
       {
-        source: '/(.*)',
+        source: "/(.*)",
         headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           {
-            key: 'Access-Control-Allow-Origin',
-            value: '*'
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
           },
           {
-            key: 'Access-Control-Allow-Methods',
-            value: 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
           },
-          {
-            key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization, X-Requested-With, Accept'
-          },
-          {
-            key: 'Access-Control-Allow-Credentials',
-            value: 'true'
-          }
-        ]
-      }
-    ]
+        ],
+      },
+    ];
   },
 };
 

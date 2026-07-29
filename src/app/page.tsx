@@ -59,15 +59,17 @@ export default function Home() {
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="border-slate-200 dark:border-slate-800 text-lg px-8">
-                Ver Demonstração
-              </Button>
+              <a href="#recursos">
+                <Button size="lg" variant="outline" className="border-slate-200 dark:border-slate-800 text-lg px-8">
+                  Ver Recursos
+                </Button>
+              </a>
             </div>
           </div>
         </section>
 
         {/* Features Section */}
-        <section className="container mx-auto px-4 py-20">
+        <section id="recursos" className="container mx-auto px-4 py-20 scroll-mt-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
             <Card className="border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm hover:shadow-xl transition-shadow">
               <CardHeader>
@@ -172,7 +174,7 @@ export default function Home() {
                 <TrendingUp className="w-4 h-4 text-white" />
               </div>
               <span className="text-sm text-slate-600 dark:text-slate-400">
-                © 2024 ProFin. Todos os direitos reservados.
+                © {new Date().getFullYear()} ProFin. Todos os direitos reservados.
               </span>
             </div>
             <div className="flex gap-6 text-sm text-slate-600 dark:text-slate-400">

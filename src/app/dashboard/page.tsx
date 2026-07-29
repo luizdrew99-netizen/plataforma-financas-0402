@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { supabase, type Profile } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase"
+import { getProfile } from "@/lib/queries"
+import type { Profile } from "@/lib/types"
+import { FinanceProvider } from "./finance-context"
 import { DashboardHeader } from "../components/dashboard-header"
 import { FinancialOverview } from "../components/financial-overview"
 import { GoalsSection } from "../components/goals-section"
@@ -10,40 +13,51 @@ import { CalendarSection } from "../components/calendar-section"
 import { QuickActions } from "../components/quick-actions"
 import { InsightsPanel } from "../components/insights-panel"
 import { PaymentsSection } from "../components/payments-section"
-import { Loader2 } from "lucide-react"
+import { Loader2, AlertCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
-export type UserType = "clt" | "mei"
+export type DashboardView =
+  | "dashboard"
+  | "goals"
+  | "calendar"
+  | "insights"
+  | "payments"
 
 export default function DashboardPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState<Profile | null>(null)
-  const [activeView, setActiveView] = useState<"dashboard" | "goals" | "calendar" | "insights" | "payments">("dashboard")
-  const [userType, setUserType] = useState<UserType>("clt")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (!session) {
-          router.push("/auth")
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user) {
+          router.replace("/auth?redirectTo=/dashboard")
           return
         }
 
-        const { data: profileData, error } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", session.user.id)
-          .single()
+        const profileData = await getProfile(user.id)
 
-        if (error) throw error
+        // O trigger `on_auth_user_created` cria o perfil no cadastro. Se ele
+        // não existir, é conta antiga ou migration não aplicada — avisamos em
+        // vez de jogar o usuário de volta para o login num loop.
+        if (!profileData) {
+          setError(
+            "Não encontramos o seu perfil. Verifique se a migration do banco foi aplicada."
+          )
+          return
+        }
 
         setProfile(profileData)
-        setUserType(profileData.user_type as UserType)
-      } catch (error) {
-        console.error("Erro ao carregar perfil:", error)
-        router.push("/auth")
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Erro ao carregar seu perfil"
+        )
       } finally {
         setLoading(false)
       }
@@ -51,24 +65,6 @@ export default function DashboardPage() {
 
     loadProfile()
   }, [router])
-
-  const handleUserTypeChange = async (newType: UserType) => {
-    if (!profile) return
-
-    try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ user_type: newType })
-        .eq("id", profile.id)
-
-      if (error) throw error
-
-      setUserType(newType)
-      setProfile({ ...profile, user_type: newType })
-    } catch (error) {
-      console.error("Erro ao atualizar tipo de usuário:", error)
-    }
-  }
 
   if (loading) {
     return (
@@ -81,32 +77,52 @@ export default function DashboardPage() {
     )
   }
 
+  if (error || !profile) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4">
+        <div className="text-center max-w-md space-y-4">
+          <AlertCircle className="w-12 h-12 text-orange-500 mx-auto" />
+          <p className="text-slate-700 dark:text-slate-300">
+            {error ?? "Perfil não encontrado"}
+          </p>
+          <Button variant="outline" onClick={() => router.refresh()}>
+            Tentar novamente
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <FinanceProvider profile={profile}>
+      <DashboardShell />
+    </FinanceProvider>
+  )
+}
+
+function DashboardShell() {
+  const [activeView, setActiveView] = useState<DashboardView>("dashboard")
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-emerald-50/30 to-blue-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 relative overflow-hidden">
       {/* Background Pattern */}
       <div className="absolute inset-0 bg-grid-slate-200/50 dark:bg-grid-slate-800/50 [mask-image:linear-gradient(0deg,transparent,black)] pointer-events-none" />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-500/10 dark:bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-500/10 dark:bg-blue-500/5 rounded-full blur-3xl pointer-events-none" />
-      
+
       <div className="relative z-10">
-        <DashboardHeader 
-          activeView={activeView} 
-          setActiveView={setActiveView}
-          userType={userType}
-          setUserType={handleUserTypeChange}
-          profile={profile}
-        />
-        
+        <DashboardHeader activeView={activeView} setActiveView={setActiveView} />
+
         <main className="container mx-auto px-4 py-6 max-w-7xl">
           {activeView === "dashboard" && (
             <div className="space-y-6">
-              <FinancialOverview userType={userType} userId={profile?.id} />
+              <FinancialOverview />
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                  <GoalsSection userType={userType} userId={profile?.id} />
+                  <GoalsSection />
                 </div>
                 <div>
-                  <QuickActions userType={userType} userId={profile?.id} />
+                  <QuickActions />
                 </div>
               </div>
             </div>
@@ -114,25 +130,25 @@ export default function DashboardPage() {
 
           {activeView === "goals" && (
             <div className="space-y-6">
-              <GoalsSection expanded userType={userType} userId={profile?.id} />
+              <GoalsSection expanded />
             </div>
           )}
 
           {activeView === "calendar" && (
             <div className="space-y-6">
-              <CalendarSection userId={profile?.id} />
+              <CalendarSection />
             </div>
           )}
 
           {activeView === "insights" && (
             <div className="space-y-6">
-              <InsightsPanel userType={userType} userId={profile?.id} />
+              <InsightsPanel />
             </div>
           )}
 
           {activeView === "payments" && (
             <div className="space-y-6">
-              <PaymentsSection userType={userType} userId={profile?.id} />
+              <PaymentsSection />
             </div>
           )}
         </main>

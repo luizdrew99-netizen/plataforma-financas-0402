@@ -20,13 +20,14 @@ export default function ResetPasswordPage() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Verificar se há um hash de recuperação na URL
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const accessToken = hashParams.get('access_token')
-    
-    if (!accessToken) {
-      setError("Link de recuperação inválido ou expirado")
-    }
+    // No fluxo PKCE quem troca o token por sessão é /auth/callback, então aqui
+    // basta confirmar que a sessão de recuperação existe. A checagem antiga
+    // procurava `access_token` no hash da URL, que nunca chega mais.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        setError("Link de recuperação inválido ou expirado")
+      }
+    })
   }, [])
 
   const validatePassword = (password: string) => {
@@ -72,9 +73,10 @@ export default function ResetPasswordPage() {
       if (updateError) throw updateError
 
       setSuccess("Senha redefinida com sucesso! Redirecionando...")
-      setTimeout(() => router.push("/auth"), 2000)
-    } catch (err: any) {
-      setError(err.message || "Erro ao redefinir senha")
+      router.push("/dashboard")
+      router.refresh()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao redefinir senha")
     } finally {
       setLoading(false)
     }

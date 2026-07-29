@@ -1,95 +1,95 @@
 "use client"
 
-import { TrendingUp, TrendingDown, Wallet, PiggyBank, DollarSign, ArrowUpRight, ArrowDownRight, Building2, Briefcase, FileText, Receipt } from "lucide-react"
+import { useMemo } from "react"
+import { TrendingUp, TrendingDown, Wallet, PiggyBank, DollarSign, ArrowUpRight, ArrowDownRight, Building2, Briefcase, Receipt, Minus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { UserType } from "../page"
+import { Skeleton } from "@/components/ui/skeleton"
+import { formatCurrency, formatPercent } from "@/lib/format"
+import { percentChange, previousMonth, summarizeMonth } from "@/lib/finance"
+import { useFinance } from "../dashboard/finance-context"
 
-interface FinancialOverviewProps {
-  userType: UserType
-}
+export function FinancialOverview() {
+  const { userType, transactions, goals, loading } = useFinance()
 
-export function FinancialOverview({ userType }: FinancialOverviewProps) {
-  const cltCards = [
-    {
-      title: "Salário Líquido",
-      value: "R$ 8.500,00",
-      change: "+5,2%",
-      trend: "up",
-      icon: Wallet,
-      color: "from-emerald-500 to-emerald-600",
-      description: "Após descontos"
-    },
-    {
-      title: "Receitas Extras",
-      value: "R$ 1.200,00",
-      change: "+18,5%",
-      trend: "up",
-      icon: TrendingUp,
-      color: "from-blue-500 to-blue-600",
-      description: "Freelances e bônus"
-    },
-    {
-      title: "Despesas Totais",
-      value: "R$ 5.240,00",
-      change: "-3,1%",
-      trend: "down",
-      icon: TrendingDown,
-      color: "from-orange-500 to-orange-600",
-      description: "Fixas + variáveis"
-    },
-    {
-      title: "Economia Mensal",
-      value: "R$ 4.460,00",
-      change: "+22,8%",
-      trend: "up",
-      icon: PiggyBank,
-      color: "from-purple-500 to-purple-600",
-      description: "46% do salário"
+  const { current, previous } = useMemo(() => {
+    const now = new Date()
+    return {
+      current: summarizeMonth(transactions, now),
+      previous: summarizeMonth(transactions, previousMonth(now)),
     }
-  ]
+  }, [transactions])
 
-  const meiCards = [
-    {
-      title: "Faturamento Mensal",
-      value: "R$ 15.800,00",
-      change: "+12,5%",
-      trend: "up",
-      icon: DollarSign,
-      color: "from-emerald-500 to-emerald-600",
-      description: "Receita bruta"
-    },
-    {
-      title: "Despesas Operacionais",
-      value: "R$ 4.200,00",
-      change: "+5,2%",
-      trend: "up",
-      icon: Receipt,
-      color: "from-orange-500 to-orange-600",
-      description: "Custos do negócio"
-    },
-    {
-      title: "Lucro Líquido",
-      value: "R$ 11.600,00",
-      change: "+15,8%",
-      trend: "up",
-      icon: TrendingUp,
-      color: "from-blue-500 to-blue-600",
-      description: "Após impostos"
-    },
-    {
-      title: "Reserva Empresarial",
-      value: "R$ 28.400,00",
-      change: "+8,3%",
-      trend: "up",
-      icon: Building2,
-      color: "from-purple-500 to-purple-600",
-      description: "Capital de giro"
-    }
-  ]
+  const goalsSaved = useMemo(
+    () => goals.reduce((total, g) => total + Number(g.current_amount), 0),
+    [goals]
+  )
 
-  const cards = userType === "clt" ? cltCards : meiCards
+  const cards = useMemo(() => {
+    const incomeLabel = userType === "clt" ? "Receitas do Mês" : "Faturamento Mensal"
+    const expenseLabel =
+      userType === "clt" ? "Despesas Totais" : "Despesas Operacionais"
+    const balanceLabel = userType === "clt" ? "Economia do Mês" : "Lucro Líquido"
+
+    return [
+      {
+        title: incomeLabel,
+        value: current.income,
+        change: percentChange(current.income, previous.income),
+        positiveIsGood: true,
+        icon: userType === "clt" ? Wallet : DollarSign,
+        color: "from-emerald-500 to-emerald-600",
+        description:
+          userType === "clt" ? "Salário e extras" : "Receita bruta do período",
+      },
+      {
+        title: expenseLabel,
+        value: current.expense,
+        change: percentChange(current.expense, previous.expense),
+        positiveIsGood: false,
+        icon: userType === "clt" ? TrendingDown : Receipt,
+        color: "from-orange-500 to-orange-600",
+        description:
+          current.pendingExpense > 0
+            ? `${formatCurrency(current.pendingExpense)} ainda em aberto`
+            : "Tudo quitado no mês",
+      },
+      {
+        title: balanceLabel,
+        value: current.balance,
+        change: percentChange(current.balance, previous.balance),
+        positiveIsGood: true,
+        icon: TrendingUp,
+        color: "from-blue-500 to-blue-600",
+        description:
+          current.income > 0
+            ? `${formatPercent(current.savingsRate, 0)} do que entrou`
+            : "Sem receitas registradas",
+      },
+      {
+        title: userType === "clt" ? "Guardado em Metas" : "Reserva Empresarial",
+        value: goalsSaved,
+        change: null,
+        positiveIsGood: true,
+        icon: userType === "clt" ? PiggyBank : Building2,
+        color: "from-purple-500 to-purple-600",
+        description: `${goals.length} meta${goals.length === 1 ? "" : "s"} ativa${goals.length === 1 ? "" : "s"}`,
+      },
+    ]
+  }, [current, previous, userType, goalsSaved, goals.length])
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-40 rounded-xl" />
+        ))}
+      </div>
+    )
+  }
+
+  const hasData = transactions.length > 0 || goals.length > 0
 
   return (
     <div className="space-y-6">
@@ -109,9 +109,9 @@ export function FinancialOverview({ userType }: FinancialOverviewProps) {
             )}
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            {userType === "clt" 
-              ? "Acompanhe seu salário, benefícios e economia mensal" 
-              : "Gerencie seu faturamento, despesas e lucro empresarial"}
+            {userType === "clt"
+              ? "Acompanhe suas receitas, despesas e economia do mês"
+              : "Gerencie seu faturamento, despesas e lucro do mês"}
           </p>
         </div>
         <Badge variant="outline" className="text-sm px-3 py-1 border-emerald-600 text-emerald-600">
@@ -119,13 +119,31 @@ export function FinancialOverview({ userType }: FinancialOverviewProps) {
         </Badge>
       </div>
 
+      {!hasData && (
+        <Card className="border-dashed">
+          <CardContent className="py-10 text-center space-y-2">
+            <p className="font-medium">Nenhum lançamento ainda</p>
+            <p className="text-sm text-muted-foreground">
+              Use as Ações Rápidas ao lado para registrar sua primeira receita ou
+              despesa — os números abaixo passam a refletir seus dados na hora.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((card, index) => {
+        {cards.map((card) => {
           const Icon = card.icon
-          const TrendIcon = card.trend === "up" ? ArrowUpRight : ArrowDownRight
-          
+          const isUp = (card.change ?? 0) > 0
+          const TrendIcon =
+            card.change === null ? Minus : isUp ? ArrowUpRight : ArrowDownRight
+          // Despesa subindo é ruim, receita subindo é boa — a cor segue o
+          // significado, não a direção da seta.
+          const isGood = card.change === null ? true : isUp === card.positiveIsGood
+          const trendColor = isGood ? "text-emerald-600" : "text-orange-600"
+
           return (
-            <Card key={index} className="overflow-hidden hover:shadow-xl transition-all duration-300 border-0 bg-white dark:bg-slate-900 group">
+            <Card key={card.title} className="overflow-hidden hover:shadow-xl transition-all duration-300 border-0 bg-white dark:bg-slate-900 group">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -138,12 +156,14 @@ export function FinancialOverview({ userType }: FinancialOverviewProps) {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  <p className="text-2xl font-bold">{card.value}</p>
+                  <p className="text-2xl font-bold">{formatCurrency(card.value)}</p>
                   <p className="text-xs text-muted-foreground">{card.description}</p>
                   <div className="flex items-center gap-1">
-                    <TrendIcon className={`h-4 w-4 ${card.trend === "up" ? "text-emerald-600" : "text-orange-600"}`} />
-                    <span className={`text-sm font-medium ${card.trend === "up" ? "text-emerald-600" : "text-orange-600"}`}>
-                      {card.change}
+                    <TrendIcon className={`h-4 w-4 ${trendColor}`} />
+                    <span className={`text-sm font-medium ${trendColor}`}>
+                      {card.change === null
+                        ? "—"
+                        : `${isUp ? "+" : ""}${formatPercent(card.change)}`}
                     </span>
                     <span className="text-sm text-muted-foreground">vs mês anterior</span>
                   </div>
@@ -154,69 +174,35 @@ export function FinancialOverview({ userType }: FinancialOverviewProps) {
         })}
       </div>
 
-      <Card className="border-0 bg-white dark:bg-slate-900 shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Progresso Mensal</CardTitle>
-            <span className="text-sm text-muted-foreground">38% do mês</span>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {userType === "clt" ? (
-            <>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Receitas Totais</span>
-                  <span className="font-medium">R$ 9.700 / R$ 10.000</span>
-                </div>
-                <Progress value={97} className="h-2 bg-slate-200 dark:bg-slate-800" />
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Despesas</span>
-                  <span className="font-medium">R$ 5.240 / R$ 7.000</span>
-                </div>
-                <Progress value={75} className="h-2 bg-slate-200 dark:bg-slate-800" />
-              </div>
+      {goals.length > 0 && (
+        <Card className="border-0 bg-white dark:bg-slate-900 shadow-lg">
+          <CardHeader>
+            <CardTitle>Progresso das Metas</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {goals.slice(0, 3).map((goal) => {
+              const target = Number(goal.target_amount)
+              const saved = Number(goal.current_amount)
+              const progress = target > 0 ? (saved / target) * 100 : 0
 
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Meta de Economia</span>
-                  <span className="font-medium">R$ 4.460 / R$ 4.000</span>
+              return (
+                <div key={goal.id} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{goal.title}</span>
+                    <span className="font-medium">
+                      {formatCurrency(saved)} / {formatCurrency(target)}
+                    </span>
+                  </div>
+                  <Progress
+                    value={Math.min(progress, 100)}
+                    className="h-2 bg-slate-200 dark:bg-slate-800"
+                  />
                 </div>
-                <Progress value={111} className="h-2 bg-slate-200 dark:bg-slate-800" />
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Faturamento</span>
-                  <span className="font-medium">R$ 15.800 / R$ 20.000</span>
-                </div>
-                <Progress value={79} className="h-2 bg-slate-200 dark:bg-slate-800" />
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Despesas Operacionais</span>
-                  <span className="font-medium">R$ 4.200 / R$ 6.000</span>
-                </div>
-                <Progress value={70} className="h-2 bg-slate-200 dark:bg-slate-800" />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Meta de Lucro</span>
-                  <span className="font-medium">R$ 11.600 / R$ 12.000</span>
-                </div>
-                <Progress value={97} className="h-2 bg-slate-200 dark:bg-slate-800" />
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
