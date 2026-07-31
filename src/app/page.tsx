@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, Shield, Zap, Target, Calendar, PieChart, ArrowRight } from "lucide-react"
+import { TrendingUp, Shield, Zap, Target, Calendar, PieChart, ArrowRight, Truck } from "lucide-react"
 import Link from "next/link"
 
 export default function Home() {
@@ -25,11 +25,20 @@ export default function Home() {
                 ProFin
               </h1>
             </div>
-            <Link href="/auth">
-              <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950">
-                Entrar
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/crm">
+                <Button variant="ghost" className="gap-1.5">
+                  <Truck className="w-4 h-4" />
+                  <span className="hidden sm:inline">CRM Proteção Veicular</span>
+                  <span className="sm:hidden">CRM</span>
+                </Button>
+              </Link>
+              <Link href="/auth">
+                <Button variant="outline" className="border-emerald-200 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950">
+                  Entrar
+                </Button>
+              </Link>
+            </div>
           </nav>
         </header>
 

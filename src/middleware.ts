@@ -18,10 +18,12 @@ export async function middleware(request: NextRequest) {
     )
 
     const isAuthenticated = !!authCookie?.value
-    const isDashboard = request.nextUrl.pathname.startsWith('/dashboard')
-    
-    // Se não está autenticado e tenta acessar dashboard, redireciona para auth
-    if (!isAuthenticated && isDashboard) {
+    const caminho = request.nextUrl.pathname
+    const rotaProtegida =
+      caminho.startsWith('/dashboard') || caminho.startsWith('/crm')
+
+    // Se não está autenticado e tenta acessar área interna, volta para o login
+    if (!isAuthenticated && rotaProtegida) {
       return NextResponse.redirect(new URL('/auth', request.url))
     }
 
@@ -35,5 +37,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/dashboard/:path*',
+    '/crm/:path*',
   ],
 }
