@@ -18,12 +18,10 @@ export async function middleware(request: NextRequest) {
     )
 
     const isAuthenticated = !!authCookie?.value
-    const caminho = request.nextUrl.pathname
-    const rotaProtegida =
-      caminho.startsWith('/dashboard') || caminho.startsWith('/crm')
+    const isDashboard = request.nextUrl.pathname.startsWith('/dashboard')
 
-    // Se não está autenticado e tenta acessar área interna, volta para o login
-    if (!isAuthenticated && rotaProtegida) {
+    // Se não está autenticado e tenta acessar dashboard, redireciona para auth
+    if (!isAuthenticated && isDashboard) {
       return NextResponse.redirect(new URL('/auth', request.url))
     }
 
@@ -34,9 +32,14 @@ export async function middleware(request: NextRequest) {
   }
 }
 
+// `/crm` fica de fora de propósito. Este middleware procura um cookie
+// `sb-*-auth-token`, mas o cliente Supabase deste projeto (`createClient`
+// puro) guarda a sessão em localStorage e não escreve cookie nenhum — então
+// a checagem daria "não autenticado" mesmo com o usuário logado, e o CRM
+// nunca abriria. Quem protege o /crm é o guarda de sessão do próprio layout
+// (`src/app/crm/layout.tsx`), e o acesso aos dados é barrado pela RLS.
 export const config = {
   matcher: [
     '/dashboard/:path*',
-    '/crm/:path*',
   ],
 }

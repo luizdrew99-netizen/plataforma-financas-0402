@@ -71,7 +71,7 @@ import { STATUS_SIMULACAO, type SimulacaoDetalhe, type StatusSimulacao } from "@
 
 export default function PaginaSimulacoes() {
   const router = useRouter()
-  const { categorias, configuracoes } = useCrm()
+  const { configuracoes } = useCrm()
 
   const [simulacoes, setSimulacoes] = useState<SimulacaoDetalhe[]>([])
   const [busca, setBusca] = useState("")
@@ -105,8 +105,6 @@ export default function PaginaSimulacoes() {
         simulacao: dados.simulacao,
         cliente: dados.cliente,
         veiculo: dados.veiculo,
-        categoria:
-          categorias.find((c) => c.id === dados.simulacao.categoria_id) ?? null,
         configuracoes,
       })
       toast.success(
@@ -252,7 +250,7 @@ export default function PaginaSimulacoes() {
                         <EtiquetaCategoria codigo={s.categoria_codigo} />
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
-                        {formatarMoeda(s.valor_mensal)}
+                        {formatarMoeda(s.total_mensal)}
                       </TableCell>
                       <TableCell>
                         <EtiquetaStatus status={s.status} />

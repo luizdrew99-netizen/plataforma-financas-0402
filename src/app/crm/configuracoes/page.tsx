@@ -95,10 +95,10 @@ export default function PaginaConfiguracoes() {
                 <Label htmlFor="nome-empresa">Nome da empresa</Label>
                 <Input
                   id="nome-empresa"
-                  value={empresa.nome_empresa}
+                  value={empresa.nome_associacao}
                   disabled={!ehAdmin}
                   onChange={(e) =>
-                    setEmpresa({ ...empresa, nome_empresa: e.target.value })
+                    setEmpresa({ ...empresa, nome_associacao: e.target.value })
                   }
                 />
               </div>
@@ -232,7 +232,7 @@ export default function PaginaConfiguracoes() {
                 <Textarea
                   id="rodape"
                   rows={3}
-                  value={empresa.rodape_pdf}
+                  value={empresa.rodape_pdf ?? ""}
                   disabled={!ehAdmin}
                   onChange={(e) =>
                     setEmpresa({ ...empresa, rodape_pdf: e.target.value })
@@ -359,12 +359,12 @@ export default function PaginaConfiguracoes() {
 
                   <CampoMoeda
                     rotulo="Rateio sugerido"
-                    valor={Number(cat.rateio_sugerido ?? 0)}
+                    valor={Number(cat.rateio_padrao ?? 0)}
                     disabled={!ehAdmin}
                     onChange={(v) =>
                       setListaCategorias((l) =>
                         l.map((c, i) =>
-                          i === indice ? { ...c, rateio_sugerido: v || null } : c
+                          i === indice ? { ...c, rateio_padrao: v || null } : c
                         )
                       )
                     }
@@ -386,7 +386,7 @@ export default function PaginaConfiguracoes() {
                                 nome: `Categoria ${cat.codigo}`,
                                 valor_min: cat.valor_min,
                                 valor_max: cat.valor_max,
-                                rateio_sugerido: cat.rateio_sugerido,
+                                rateio_padrao: cat.rateio_padrao,
                               }),
                             "Categoria salva."
                           )
@@ -582,19 +582,19 @@ export default function PaginaConfiguracoes() {
               <CardHeader className="flex flex-row items-start justify-between space-y-0">
                 <div className="min-w-0 flex-1 pr-4">
                   <Input
-                    value={ben.titulo}
+                    value={ben.nome}
                     disabled={!ehAdmin}
                     className="text-base font-semibold"
                     onChange={(e) =>
                       setListaBeneficios((l) =>
                         l.map((b, i) =>
-                          i === indice ? { ...b, titulo: e.target.value } : b
+                          i === indice ? { ...b, nome: e.target.value } : b
                         )
                       )
                     }
                   />
                   <p className="text-muted-foreground mt-1 font-mono text-xs">
-                    {ben.chave}
+                    {ben.codigo}
                   </p>
                 </div>
                 <div className="w-36 shrink-0">
@@ -652,7 +652,7 @@ export default function PaginaConfiguracoes() {
                           () =>
                             salvarBeneficio({
                               id: ben.id,
-                              titulo: ben.titulo,
+                              nome: ben.nome,
                               descricao: ben.descricao,
                               valor_padrao: ben.valor_padrao,
                               padrao: ben.padrao,

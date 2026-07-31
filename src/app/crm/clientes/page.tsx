@@ -103,7 +103,7 @@ export default function PaginaClientes() {
                         </Link>
                       </TableCell>
                       <TableCell className="text-muted-foreground hidden text-sm sm:table-cell">
-                        {c.tipo_pessoa === "juridica" ? "Jurídica" : "Física"}
+                        {c.tipo_pessoa === "pj" ? "Jurídica" : "Física"}
                       </TableCell>
                       <TableCell className="hidden font-mono text-xs md:table-cell">
                         {c.cnpj
@@ -114,7 +114,7 @@ export default function PaginaClientes() {
                       </TableCell>
                       <TableCell>{formatarTelefone(c.telefone) || "—"}</TableCell>
                       <TableCell className="text-muted-foreground hidden lg:table-cell">
-                        {[c.cidade, c.estado].filter(Boolean).join(" / ") || "—"}
+                        {[c.cidade, c.uf].filter(Boolean).join(" / ") || "—"}
                       </TableCell>
                       <TableCell className="text-muted-foreground hidden text-sm lg:table-cell">
                         {formatarData(c.created_at)}

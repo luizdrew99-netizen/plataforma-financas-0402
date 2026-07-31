@@ -16,23 +16,23 @@ import {
 } from "react"
 
 import {
-  garantirUsuarioCrm,
   listarBeneficios,
   listarCategorias,
   listarCoberturas,
   obterConfiguracoes,
+  obterMeuPerfil,
 } from "@/lib/crm/queries"
 import type {
   Beneficio,
   Categoria,
   Cobertura,
   Configuracoes,
-  CrmPapel,
-  CrmUsuario,
+  Papel,
+  Perfil,
 } from "@/lib/crm/types"
 
 interface EstadoCrm {
-  usuario: CrmUsuario | null
+  usuario: Perfil | null
   configuracoes: Configuracoes | null
   categorias: Categoria[]
   coberturas: Cobertura[]
@@ -41,14 +41,14 @@ interface EstadoCrm {
   erro: string | null
   recarregar: () => Promise<void>
   /** `true` se o papel do usuário está entre os informados. */
-  temPapel: (...papeis: CrmPapel[]) => boolean
+  temPapel: (...papeis: Papel[]) => boolean
   ehAdmin: boolean
 }
 
 const ContextoCrm = createContext<EstadoCrm | null>(null)
 
 export function ProvedorCrm({ children }: { children: React.ReactNode }) {
-  const [usuario, setUsuario] = useState<CrmUsuario | null>(null)
+  const [usuario, setUsuario] = useState<Perfil | null>(null)
   const [configuracoes, setConfiguracoes] = useState<Configuracoes | null>(null)
   const [categorias, setCategorias] = useState<Categoria[]>([])
   const [coberturas, setCoberturas] = useState<Cobertura[]>([])
@@ -60,9 +60,9 @@ export function ProvedorCrm({ children }: { children: React.ReactNode }) {
     setCarregando(true)
     setErro(null)
     try {
-      // O usuário vem primeiro: sem ficha no CRM a RLS bloqueia todo o resto.
-      const fichaUsuario = await garantirUsuarioCrm()
-      setUsuario(fichaUsuario)
+      // O perfil vem primeiro: a RLS de todo o resto depende do papel dele.
+      // A linha é criada pelo trigger `handle_new_user` no cadastro.
+      setUsuario(await obterMeuPerfil())
 
       const [cfg, cats, cobs, bens] = await Promise.all([
         obterConfiguracoes(),
@@ -95,7 +95,7 @@ export function ProvedorCrm({ children }: { children: React.ReactNode }) {
       carregando,
       erro,
       recarregar: carregar,
-      temPapel: (...papeis: CrmPapel[]) =>
+      temPapel: (...papeis: Papel[]) =>
         !!usuario && papeis.includes(usuario.papel),
       ehAdmin: usuario?.papel === "admin",
     }),

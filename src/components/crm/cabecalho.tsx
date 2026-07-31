@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { FilePlus2, Loader2, Moon, Search, Sun, Truck, User } from "lucide-react"
 import { useTheme } from "next-themes"
 
-import { supabase } from "@/lib/supabase"
+import { buscaGlobal, type ResultadoBusca } from "@/lib/crm/queries"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
@@ -18,20 +18,12 @@ const TITULOS: { prefixo: string; titulo: string; exato?: boolean }[] = [
   { prefixo: "/crm/simulacoes", titulo: "Simulações" },
   { prefixo: "/crm/clientes", titulo: "Clientes" },
   { prefixo: "/crm/veiculos", titulo: "Veículos" },
-  { prefixo: "/crm/cadastros", titulo: "Cadastros" },
+  { prefixo: "/crm/contratos", titulo: "Contratos" },
   { prefixo: "/crm/pdfs", titulo: "PDFs Gerados" },
   { prefixo: "/crm/relatorios", titulo: "Relatórios" },
   { prefixo: "/crm/configuracoes", titulo: "Configurações" },
   { prefixo: "/crm/usuarios", titulo: "Usuários" },
 ]
-
-interface ResultadoBusca {
-  tipo: "cliente" | "veiculo"
-  id: string
-  titulo: string
-  subtitulo: string | null
-  referencia: string | null
-}
 
 function tituloDaRota(caminho: string): string {
   const achado = TITULOS.filter((t) =>
@@ -62,11 +54,8 @@ export function CabecalhoCrm() {
 
     setBuscando(true)
     const temporizador = setTimeout(async () => {
-      const { data, error } = await supabase.rpc("crm_busca", { p_termo: consulta })
-      if (!error) {
-        setResultados((data ?? []) as ResultadoBusca[])
-        setAberto(true)
-      }
+      setResultados(await buscaGlobal(consulta))
+      setAberto(true)
       setBuscando(false)
     }, 300)
 

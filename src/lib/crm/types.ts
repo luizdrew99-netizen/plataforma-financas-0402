@@ -1,50 +1,61 @@
 /**
- * Tipos do CRM de Proteção Veicular.
- * Espelham as tabelas `crm_*` criadas na migração
- * `20260731000100_crm_protecao_veicular.sql`.
+ * Tipos do CRM da ABPAC.
+ *
+ * Espelham o schema que já existe no Supabase (projeto pgycjyrcjxtjptcfxzvx):
+ * `configuracoes`, `categorias`, `coberturas`, `beneficios`, `clientes`,
+ * `veiculos`, `simulacoes`, `contratos`, `simulacao_pdfs`, `documentos`,
+ * `auditoria` e `profiles`.
+ *
+ * Detalhe importante do modelo: **o valor de mercado e a categoria moram na
+ * simulação, não no veículo**. O mesmo caminhão pode ser simulado em datas
+ * diferentes com avaliações diferentes.
  */
 
-export type CrmPapel = "admin" | "supervisor" | "consultor"
-export type TipoPessoa = "fisica" | "juridica"
+export type Papel = "admin" | "supervisor" | "consultor"
+export type TipoPessoa = "pf" | "pj"
+
 export type StatusSimulacao =
   | "rascunho"
   | "gerada"
   | "enviada"
+  | "em_negociacao"
   | "confirmada"
-  | "cancelada"
-export type SituacaoCadastro =
+  | "perdida"
+  | "expirada"
+
+export type SituacaoContrato =
   | "ativo"
   | "pendente"
   | "cancelado"
   | "inadimplente"
   | "suspenso"
 
-export interface CrmUsuario {
+/** Linha de `profiles` — criada automaticamente pelo trigger `handle_new_user`. */
+export interface Perfil {
   id: string
-  nome: string | null
-  email: string | null
-  papel: CrmPapel
+  nome: string
+  email: string
+  papel: Papel
   ativo: boolean
   created_at: string
-  updated_at: string
 }
 
 export interface Configuracoes {
   id: boolean
-  nome_empresa: string
+  nome_associacao: string
   cnpj: string | null
-  logo_url: string | null
   telefone: string | null
   whatsapp: string | null
   email: string | null
+  logo_url: string | null
+  rodape_pdf: string | null
   endereco: string | null
   site: string | null
-  rodape_pdf: string
   observacoes_padrao: string | null
-  taxa_adesao_padrao: number
-  validade_proposta_dias: number
   assinatura_nome: string | null
   assinatura_cargo: string | null
+  taxa_adesao_padrao: number
+  validade_proposta_dias: number
   updated_at: string
 }
 
@@ -55,7 +66,7 @@ export interface Categoria {
   valor_min: number
   /** `null` significa faixa sem teto (a última). */
   valor_max: number | null
-  rateio_sugerido: number | null
+  rateio_padrao: number | null
   ordem: number
   ativo: boolean
 }
@@ -65,20 +76,24 @@ export interface Cobertura {
   nome: string
   descricao: string | null
   ordem: number
-  padrao: boolean
   ativo: boolean
+  padrao: boolean
 }
 
 export interface Beneficio {
   id: string
-  chave: string
-  titulo: string
+  codigo: string
+  nome: string
   descricao: string
   valor_padrao: number
   ordem: number
-  padrao: boolean
   ativo: boolean
+  padrao: boolean
 }
+
+/** Os dois benefícios estruturais, que têm coluna própria na simulação. */
+export const CODIGO_TERCEIROS = "terceiros"
+export const CODIGO_ASSISTENCIA = "assistencia24h"
 
 export interface Cliente {
   id: string
@@ -103,14 +118,13 @@ export interface Cliente {
   complemento: string | null
   bairro: string | null
   cidade: string | null
-  estado: string | null
+  uf: string | null
   observacoes: string | null
   criado_por: string | null
   created_at: string
   updated_at: string
 }
 
-/** Restrições declaradas do veículo (leilão, monta, chassi remarcado…). */
 export type RestricaoVeiculo =
   | "leilao"
   | "recuperado_sinistro"
@@ -141,9 +155,6 @@ export interface Veiculo {
   chassi: string | null
   renavam: string | null
   cor: string | null
-  valor_mercado: number
-  categoria_id: string | null
-  tipo_veiculo: string
   restricoes: RestricaoVeiculo[]
   restricoes_descricao: string | null
   observacoes: string | null
@@ -152,52 +163,102 @@ export interface Veiculo {
   updated_at: string
 }
 
-/** Cobertura como ficou gravada na simulação (não muda se o cadastro mudar). */
-export interface CoberturaSnapshot {
+// ---------------------------------------------------------------------
+// Snapshot — a fotografia do que foi vendido, montada pelo banco em
+// `salvar_simulacao`. É a fonte do PDF: mesmo que o cadastro mude depois,
+// a proposta emitida continua igual ao papel que o cliente recebeu.
+// ---------------------------------------------------------------------
+
+export interface SnapshotCobertura {
   nome: string
   descricao?: string | null
 }
 
-/** Benefício como ficou gravado na simulação, com o valor efetivamente vendido. */
-export interface BeneficioSnapshot {
-  chave: string
-  titulo: string
+export interface SnapshotBeneficio {
+  codigo: string
+  nome: string
   descricao: string
   valor: number
 }
 
+export interface SnapshotEmpresa {
+  nome_associacao: string | null
+  cnpj: string | null
+  telefone: string | null
+  whatsapp: string | null
+  email: string | null
+  endereco: string | null
+  site: string | null
+  logo_url: string | null
+  rodape_pdf: string | null
+  assinatura_nome: string | null
+  assinatura_cargo: string | null
+}
+
+export interface SnapshotCategoria {
+  codigo: string | null
+  nome: string | null
+  valor_min: number | null
+  valor_max: number | null
+}
+
+export interface SnapshotValores {
+  valor_mercado: number
+  valor_rateio: number
+  valor_terceiros: number
+  valor_assistencia: number
+  valor_beneficios_extras: number
+  taxa_adesao: number
+  total_mensal: number
+}
+
+export interface SnapshotProposta {
+  versao: number
+  gerado_em: string
+  validade_dias: number
+  empresa: SnapshotEmpresa
+  categoria: SnapshotCategoria
+  valores: SnapshotValores
+  coberturas: SnapshotCobertura[]
+  beneficios: SnapshotBeneficio[]
+}
+
 export interface Simulacao {
   id: string
-  numero: number
+  /** Formato "SIM-2026-000001", gerado pelo banco. */
+  numero: string
   cliente_id: string
   veiculo_id: string
   categoria_id: string | null
   valor_mercado: number
   valor_rateio: number
-  valor_protecao_terceiros: number
+  valor_terceiros: number
   valor_assistencia: number
-  /** Soma dos benefícios cadastrados além dos dois padrão. */
   valor_beneficios_extras: number
   taxa_adesao: number
-  /** Coluna gerada pelo banco: rateio + terceiros + assistência + extras. */
-  valor_mensal: number
-  coberturas_snapshot: CoberturaSnapshot[]
-  beneficios_snapshot: BeneficioSnapshot[]
-  observacoes: string | null
+  /** rateio + terceiros + assistência + extras, calculado no banco. */
+  total_mensal: number
   status: StatusSimulacao
+  versao: number
+  snapshot: SnapshotProposta | null
+  observacoes: string | null
   token_publico: string
-  confirmada_em: string | null
+  token_expira_em: string | null
+  token_revogado: boolean
   criado_por: string | null
   created_at: string
   updated_at: string
 }
 
-/** Linha da view `crm_simulacoes_detalhe`: simulação + cliente + veículo + categoria. */
+/** Linha da view `simulacoes_detalhe`. */
 export interface SimulacaoDetalhe extends Simulacao {
   cliente_nome: string
   cliente_telefone: string | null
+  cliente_whatsapp: string | null
+  cliente_email: string | null
   cliente_cidade: string | null
-  cliente_estado: string | null
+  cliente_uf: string | null
+  cliente_tipo_pessoa: TipoPessoa
   veiculo_placa: string
   veiculo_marca: string | null
   veiculo_modelo: string | null
@@ -209,18 +270,18 @@ export interface SimulacaoDetalhe extends Simulacao {
   categoria_nome: string | null
   categoria_valor_min: number | null
   categoria_valor_max: number | null
-  cadastro_id: string | null
-  cadastro_numero: number | null
-  cadastro_situacao: SituacaoCadastro | null
+  contrato_id: string | null
+  contrato_numero: string | null
+  contrato_situacao: SituacaoContrato | null
 }
 
-export interface Cadastro {
+export interface Contrato {
   id: string
-  numero: number
+  numero: string
   simulacao_id: string | null
   cliente_id: string
   veiculo_id: string
-  situacao: SituacaoCadastro
+  situacao: SituacaoContrato
   valor_protecao: number
   valor_mensal: number
   taxa_adesao: number
@@ -228,17 +289,17 @@ export interface Cadastro {
   data_vencimento: string | null
   dia_vencimento: number | null
   observacoes: string | null
+  criado_por: string | null
   created_at: string
   updated_at: string
 }
 
-export interface PdfGerado {
+export interface SimulacaoPdf {
   id: string
   simulacao_id: string
   versao: number
-  arquivo_path: string
-  tamanho_bytes: number | null
-  gerado_por: string | null
+  storage_path: string
+  gerado_por: string
   created_at: string
 }
 
@@ -253,11 +314,12 @@ export interface DashboardResumo {
   total_simulacoes: number
   simulacoes_hoje: number
   simulacoes_mes: number
-  cadastros_confirmados: number
+  confirmadas: number
   valor_medio: number
-  ticket_total_mes: number
+  ticket_confirmado_mes: number
   total_clientes: number
   total_veiculos: number
+  contratos_ativos: number
   serie_mensal: PontoSerieMensal[]
 }
 
@@ -267,8 +329,7 @@ export const STATUS_SIMULACAO: Record<
 > = {
   rascunho: {
     rotulo: "Rascunho",
-    classe:
-      "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
+    classe: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
   },
   gerada: {
     rotulo: "Gerada",
@@ -276,22 +337,29 @@ export const STATUS_SIMULACAO: Record<
   },
   enviada: {
     rotulo: "Enviada",
-    classe:
-      "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+    classe: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  },
+  em_negociacao: {
+    rotulo: "Em negociação",
+    classe: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
   },
   confirmada: {
     rotulo: "Confirmada",
     classe:
       "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
   },
-  cancelada: {
-    rotulo: "Cancelada",
+  perdida: {
+    rotulo: "Perdida",
     classe: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
+  },
+  expirada: {
+    rotulo: "Expirada",
+    classe: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
   },
 }
 
-export const SITUACAO_CADASTRO: Record<
-  SituacaoCadastro,
+export const SITUACAO_CONTRATO: Record<
+  SituacaoContrato,
   { rotulo: string; classe: string }
 > = {
   ativo: {
@@ -301,8 +369,7 @@ export const SITUACAO_CADASTRO: Record<
   },
   pendente: {
     rotulo: "Pendente",
-    classe:
-      "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
+    classe: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
   },
   cancelado: {
     rotulo: "Cancelado",

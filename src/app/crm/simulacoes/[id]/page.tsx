@@ -76,7 +76,7 @@ function Dado({ rotulo, valor }: { rotulo: string; valor: React.ReactNode }) {
 export default function PaginaDetalheSimulacao() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { categorias, configuracoes } = useCrm()
+  const { configuracoes } = useCrm()
 
   const [simulacao, setSimulacao] = useState<SimulacaoDetalhe | null>(null)
   const [pdfs, setPdfs] = useState<PdfComSimulacao[]>([])
@@ -112,8 +112,6 @@ export default function PaginaDetalheSimulacao() {
         simulacao: dados.simulacao,
         cliente: dados.cliente,
         veiculo: dados.veiculo,
-        categoria:
-          categorias.find((c) => c.id === dados.simulacao.categoria_id) ?? null,
         configuracoes,
       })
       toast.success(
@@ -135,7 +133,7 @@ export default function PaginaDetalheSimulacao() {
     try {
       const cadastro = await confirmarSimulacao(simulacao.id)
       toast.success(
-        `Simulação confirmada. Cadastro nº ${String(cadastro.numero).padStart(6, "0")} criado.`
+        `Simulação confirmada. Contrato ${cadastro.numero} criado.`
       )
       setDialogoConfirmar(false)
       void carregar()
@@ -165,7 +163,7 @@ export default function PaginaDetalheSimulacao() {
     const texto =
       `Olá, ${simulacao.cliente_nome}! Segue a simulação de proteção veicular ` +
       `do caminhão placa ${formatarPlaca(simulacao.veiculo_placa)}.\n\n` +
-      `Valor mensal: ${formatarMoeda(simulacao.valor_mensal)}\n` +
+      `Valor mensal: ${formatarMoeda(simulacao.total_mensal)}\n` +
       `Taxa de adesão: ${formatarMoeda(simulacao.taxa_adesao)}\n\n` +
       `Proposta completa: ${linkPublico}`
     const numero = somenteDigitos(simulacao.cliente_telefone)
@@ -180,7 +178,7 @@ export default function PaginaDetalheSimulacao() {
       `Olá, ${simulacao.cliente_nome}!\n\n` +
       `Segue a simulação de proteção veicular do caminhão placa ` +
       `${formatarPlaca(simulacao.veiculo_placa)}.\n\n` +
-      `Valor mensal: ${formatarMoeda(simulacao.valor_mensal)}\n` +
+      `Valor mensal: ${formatarMoeda(simulacao.total_mensal)}\n` +
       `Taxa de adesão: ${formatarMoeda(simulacao.taxa_adesao)}\n\n` +
       `Proposta completa: ${linkPublico}\n`
     window.location.href = `mailto:?subject=${encodeURIComponent(
@@ -247,8 +245,8 @@ export default function PaginaDetalheSimulacao() {
                 {formatarNumeroSimulacao(simulacao.numero)}
               </h2>
               <EtiquetaStatus status={simulacao.status} />
-              {simulacao.cadastro_situacao && (
-                <EtiquetaSituacao situacao={simulacao.cadastro_situacao} />
+              {simulacao.contrato_situacao && (
+                <EtiquetaSituacao situacao={simulacao.contrato_situacao} />
               )}
             </div>
             <p className="text-muted-foreground text-sm">
@@ -303,7 +301,7 @@ export default function PaginaDetalheSimulacao() {
               <Dado rotulo="Telefone" valor={simulacao.cliente_telefone} />
               <Dado
                 rotulo="Cidade / UF"
-                valor={[simulacao.cliente_cidade, simulacao.cliente_estado]
+                valor={[simulacao.cliente_cidade, simulacao.cliente_uf]
                   .filter(Boolean)
                   .join(" / ")}
               />
@@ -392,7 +390,7 @@ export default function PaginaDetalheSimulacao() {
             </CardHeader>
             <CardContent className="space-y-4">
               <ul className="grid gap-1.5 sm:grid-cols-2">
-                {(simulacao.coberturas_snapshot ?? []).map((c, i) => (
+                {(simulacao.snapshot?.coberturas ?? []).map((c, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm">
                     <ShieldCheck className="mt-0.5 size-4 shrink-0 text-emerald-600" />
                     {c.nome}
@@ -400,14 +398,14 @@ export default function PaginaDetalheSimulacao() {
                 ))}
               </ul>
 
-              {(simulacao.beneficios_snapshot ?? []).map((b, i) => (
-                <div key={b.chave ?? i} className="rounded-lg border p-3">
+              {(simulacao.snapshot?.beneficios ?? []).map((b, i) => (
+                <div key={b.codigo ?? i} className="rounded-lg border p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-muted-foreground text-xs">
                         Benefício {i + 1}
                       </p>
-                      <p className="font-medium">{b.titulo}</p>
+                      <p className="font-medium">{b.nome}</p>
                     </div>
                     <p className="shrink-0 font-semibold tabular-nums">
                       {formatarMoeda(b.valor)}
@@ -455,15 +453,12 @@ export default function PaginaDetalheSimulacao() {
                         <p className="text-sm font-medium">Versão {p.versao}</p>
                         <p className="text-muted-foreground text-xs">
                           {formatarDataHora(p.created_at)}
-                          {p.tamanho_bytes
-                            ? ` · ${Math.round(p.tamanho_bytes / 1024)} KB`
-                            : ""}
                         </p>
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => void baixarVersao(p.arquivo_path)}
+                        onClick={() => void baixarVersao(p.storage_path)}
                         className="gap-1.5"
                       >
                         <FileDown className="size-4" />
@@ -490,12 +485,12 @@ export default function PaginaDetalheSimulacao() {
                   {formatarMoeda(simulacao.valor_rateio)}
                 </span>
               </div>
-              {(simulacao.beneficios_snapshot ?? []).map((b, i) => (
+              {(simulacao.snapshot?.beneficios ?? []).map((b, i) => (
                 <div
-                  key={b.chave ?? i}
+                  key={b.codigo ?? i}
                   className="flex items-center justify-between gap-2 text-sm"
                 >
-                  <span className="text-muted-foreground truncate">{b.titulo}</span>
+                  <span className="text-muted-foreground truncate">{b.nome}</span>
                   <span className="shrink-0 font-medium tabular-nums">
                     {formatarMoeda(b.valor)}
                   </span>
@@ -509,7 +504,7 @@ export default function PaginaDetalheSimulacao() {
                   Valor mensal
                 </p>
                 <p className="text-2xl font-bold tabular-nums">
-                  {formatarMoeda(simulacao.valor_mensal)}
+                  {formatarMoeda(simulacao.total_mensal)}
                 </p>
               </div>
 
@@ -522,18 +517,17 @@ export default function PaginaDetalheSimulacao() {
 
               <Separator />
 
-              {simulacao.cadastro_id ? (
+              {simulacao.contrato_id ? (
                 <div className="rounded-lg border border-emerald-500/40 bg-emerald-500/5 p-3">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="size-4 text-emerald-600" />
                     <p className="text-sm font-medium">Simulação confirmada</p>
                   </div>
                   <p className="text-muted-foreground mt-1 text-xs">
-                    Cadastro nº{" "}
-                    {String(simulacao.cadastro_numero ?? 0).padStart(6, "0")}
+                    Contrato {simulacao.contrato_numero}
                   </p>
                   <Button asChild variant="outline" size="sm" className="mt-2 w-full">
-                    <Link href="/crm/cadastros">Ver cadastros</Link>
+                    <Link href="/crm/contratos">Ver contratos</Link>
                   </Button>
                 </div>
               ) : (
@@ -555,8 +549,8 @@ export default function PaginaDetalheSimulacao() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar esta simulação?</AlertDialogTitle>
             <AlertDialogDescription>
-              A proposta {formatarNumeroSimulacao(simulacao.numero)} vira um cadastro
-              definitivo com situação <strong>pendente</strong>, pronto para você
+              A proposta {simulacao.numero} vira um contrato
+              com situação <strong>pendente</strong>, pronto para você
               completar os dados de pessoa física ou jurídica.
             </AlertDialogDescription>
           </AlertDialogHeader>

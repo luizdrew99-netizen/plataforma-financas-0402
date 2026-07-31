@@ -2,9 +2,9 @@
 
 import { cn } from "@/lib/utils"
 import {
-  SITUACAO_CADASTRO,
+  SITUACAO_CONTRATO,
   STATUS_SIMULACAO,
-  type SituacaoCadastro,
+  type SituacaoContrato,
   type StatusSimulacao,
 } from "@/lib/crm/types"
 
@@ -27,10 +27,10 @@ export function EtiquetaSituacao({
   situacao,
   className,
 }: {
-  situacao: SituacaoCadastro
+  situacao: SituacaoContrato
   className?: string
 }) {
-  const info = SITUACAO_CADASTRO[situacao]
+  const info = SITUACAO_CONTRATO[situacao]
   if (!info) return null
   return <span className={cn(BASE, info.classe, className)}>{info.rotulo}</span>
 }

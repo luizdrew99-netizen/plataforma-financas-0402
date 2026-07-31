@@ -1,6 +1,6 @@
 /**
- * Geração da proposta em PDF: monta o QR code, renderiza o documento,
- * entrega o arquivo ao consultor e arquiva a versão no Storage.
+ * Geração da proposta em PDF: resolve QR code e logo, renderiza o documento,
+ * entrega o arquivo ao consultor e arquiva a versão no bucket `propostas`.
  *
  * Roda só no navegador — `@react-pdf/renderer` precisa do DOM para o
  * `toBlob()`, e o download depende da própria aba.
@@ -30,8 +30,33 @@ async function gerarQrCode(conteudo: string): Promise<string | null> {
   }
 }
 
+/**
+ * Baixa a logo e converte para data URL antes de renderizar.
+ *
+ * O `<Image>` do react-pdf busca a URL durante o render; se a rede falhar ou
+ * o CORS barrar, o documento inteiro quebra. Resolvendo antes, uma logo
+ * indisponível apenas cai no monograma.
+ */
+async function carregarLogo(url: string | null | undefined): Promise<string | null> {
+  if (!url) return null
+  try {
+    const resposta = await fetch(url, { mode: "cors" })
+    if (!resposta.ok) return null
+    const blob = await resposta.blob()
+    return await new Promise<string | null>((resolver) => {
+      const leitor = new FileReader()
+      leitor.onloadend = () => resolver(leitor.result as string)
+      leitor.onerror = () => resolver(null)
+      leitor.readAsDataURL(blob)
+    })
+  } catch (erro) {
+    console.error("Não foi possível carregar a logo para o PDF:", erro)
+    return null
+  }
+}
+
 export function nomeArquivoProposta(
-  numero: number,
+  numero: string,
   placa: string,
   clienteNome: string
 ): string {
@@ -41,24 +66,27 @@ export function nomeArquivoProposta(
     .replace(/[^A-Za-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
     .slice(0, 40)
-  return `proposta-${String(numero).padStart(6, "0")}-${formatarPlaca(
-    placa
-  ).replace("-", "")}-${limpo || "cliente"}.pdf`
+  return `${numero}-${formatarPlaca(placa).replace("-", "")}-${limpo || "cliente"}.pdf`
 }
 
 /** Renderiza o documento e devolve o PDF como Blob. */
 export async function renderizarPropostaBlob(
-  dados: Omit<DadosProposta, "qrCodeDataUrl">
+  dados: Omit<DadosProposta, "qrCodeDataUrl" | "logoDataUrl">
 ): Promise<Blob> {
-  const qrCodeDataUrl = await gerarQrCode(
-    linkPublicoProposta(dados.simulacao.token_publico)
-  )
+  const urlLogo =
+    dados.simulacao.snapshot?.empresa?.logo_url ?? dados.configuracoes.logo_url
+
+  const [qrCodeDataUrl, logoDataUrl] = await Promise.all([
+    gerarQrCode(linkPublicoProposta(dados.simulacao.token_publico)),
+    carregarLogo(urlLogo),
+  ])
 
   // `pdf()` tipa o argumento como elemento de <Document>; o nosso componente
   // devolve exatamente isso, mas o TS só enxerga as props dele.
   const documento = createElement(DocumentoProposta, {
     ...dados,
     qrCodeDataUrl,
+    logoDataUrl,
   }) as unknown as ReactElement<DocumentProps>
 
   return pdf(documento).toBlob()
@@ -72,21 +100,26 @@ export interface ResultadoGeracao {
 }
 
 /**
- * Fluxo completo do botão "Gerar Simulação": renderiza, baixa e arquiva.
+ * Fluxo do botão "Gerar Simulação": renderiza, baixa e arquiva.
  * O download vem antes do arquivamento de propósito — se o Storage falhar,
  * o consultor já está com o arquivo na mão.
  */
 export async function gerarEBaixarProposta(
-  dados: Omit<DadosProposta, "qrCodeDataUrl">,
+  dados: Omit<DadosProposta, "qrCodeDataUrl" | "logoDataUrl">,
   opcoes: { baixar?: boolean; arquivar?: boolean } = {}
 ): Promise<ResultadoGeracao> {
   const { baixar = true, arquivar = true } = opcoes
 
   const blob = await renderizarPropostaBlob(dados)
+  const nomeCliente =
+    dados.cliente.tipo_pessoa === "pj"
+      ? dados.cliente.razao_social || dados.cliente.nome
+      : dados.cliente.nome
+
   const nomeArquivo = nomeArquivoProposta(
     dados.simulacao.numero,
     dados.veiculo.placa,
-    dados.cliente.nome
+    nomeCliente
   )
 
   if (baixar && typeof window !== "undefined") {
@@ -116,7 +149,7 @@ export async function gerarEBaixarProposta(
 
 /** Abre a proposta numa aba nova, para conferência antes de enviar. */
 export async function visualizarProposta(
-  dados: Omit<DadosProposta, "qrCodeDataUrl">
+  dados: Omit<DadosProposta, "qrCodeDataUrl" | "logoDataUrl">
 ): Promise<void> {
   const blob = await renderizarPropostaBlob(dados)
   const url = URL.createObjectURL(blob)

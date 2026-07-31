@@ -140,7 +140,7 @@ export default function PaginaDashboard() {
 
   const taxaConversao = useMemo(() => {
     if (!resumo || resumo.total_simulacoes === 0) return "—"
-    const taxa = (resumo.cadastros_confirmados / resumo.total_simulacoes) * 100
+    const taxa = (resumo.confirmadas / resumo.total_simulacoes) * 100
     return `${taxa.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`
   }, [resumo])
 
@@ -175,8 +175,8 @@ export default function PaginaDashboard() {
           carregando={carregando}
         />
         <Indicador
-          titulo="Cadastros confirmados"
-          valor={String(resumo?.cadastros_confirmados ?? 0)}
+          titulo="Confirmadas"
+          valor={String(resumo?.confirmadas ?? 0)}
           detalhe={`Conversão de ${taxaConversao}`}
           icone={CheckCircle2}
           carregando={carregando}
@@ -276,7 +276,7 @@ export default function PaginaDashboard() {
                 Mensalidade confirmada no mês
               </p>
               <p className="text-xl font-semibold tabular-nums">
-                {formatarMoeda(resumo?.ticket_total_mes ?? 0)}
+                {formatarMoeda(resumo?.ticket_confirmado_mes ?? 0)}
               </p>
             </div>
 
@@ -365,7 +365,7 @@ export default function PaginaDashboard() {
                         <EtiquetaCategoria codigo={s.categoria_codigo} />
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
-                        {formatarMoeda(s.valor_mensal)}
+                        {formatarMoeda(s.total_mensal)}
                       </TableCell>
                       <TableCell>
                         <EtiquetaStatus status={s.status} />

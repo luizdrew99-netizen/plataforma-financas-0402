@@ -1,10 +1,15 @@
 /* eslint-disable jsx-a11y/alt-text */
 /**
- * Documento PDF da proposta de proteção veicular.
+ * Documento PDF da proposta da ABPAC.
  *
- * Usa as fontes padrão do PDF (Helvetica) de propósito: elas já cobrem os
- * acentos do português e não dependem de baixar arquivo nenhum na hora de
- * gerar, o que manteria a geração presa à rede.
+ * Os dados vêm do **snapshot** gravado na simulação, não do cadastro atual:
+ * se alguém editar o texto de um benefício amanhã, a proposta já emitida
+ * continua idêntica ao papel que o cliente recebeu. As colunas da simulação
+ * e as configurações servem só de reserva para linhas antigas, gravadas
+ * antes do snapshot existir.
+ *
+ * Usa as fontes padrão do PDF (Helvetica) de propósito: cobrem os acentos do
+ * português e não dependem de baixar arquivo nenhum na hora de gerar.
  */
 
 import {
@@ -17,12 +22,11 @@ import {
 } from "@react-pdf/renderer"
 
 import type {
-  BeneficioSnapshot,
-  Categoria,
   Cliente,
-  CoberturaSnapshot,
   Configuracoes,
   Simulacao,
+  SnapshotBeneficio,
+  SnapshotCobertura,
   Veiculo,
 } from "../types"
 import { RESTRICOES_VEICULO } from "../types"
@@ -31,7 +35,6 @@ import { descreverFaixa } from "../calc"
 const CORES = {
   tinta: "#0F1B2A",
   navy: "#0E2A47",
-  navyClaro: "#1B4670",
   destaque: "#C2410C",
   cinza: "#5B6B7F",
   cinzaClaro: "#E3E8EF",
@@ -50,7 +53,6 @@ const estilos = StyleSheet.create({
     lineHeight: 1.45,
   },
 
-  // Cabeçalho
   cabecalho: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -60,7 +62,7 @@ const estilos = StyleSheet.create({
     paddingBottom: 12,
     marginBottom: 16,
   },
-  cabecalhoEsquerda: { flexDirection: "row", alignItems: "center", maxWidth: 320 },
+  cabecalhoEsquerda: { flexDirection: "row", alignItems: "center", maxWidth: 330 },
   logo: { width: 54, height: 54, objectFit: "contain", marginRight: 12 },
   logoVazio: {
     width: 54,
@@ -71,18 +73,15 @@ const estilos = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  logoVazioTexto: { color: CORES.branco, fontSize: 18, fontFamily: "Helvetica-Bold" },
-  nomeEmpresa: { fontSize: 14, fontFamily: "Helvetica-Bold", color: CORES.navy },
+  logoVazioTexto: { color: CORES.branco, fontSize: 16, fontFamily: "Helvetica-Bold" },
+  nomeEmpresa: { fontSize: 12, fontFamily: "Helvetica-Bold", color: CORES.navy },
   contatoEmpresa: { fontSize: 7.5, color: CORES.cinza, marginTop: 2 },
 
-  selo: {
-    alignItems: "flex-end",
-  },
+  selo: { alignItems: "flex-end" },
   seloRotulo: { fontSize: 7, color: CORES.cinza, letterSpacing: 1 },
-  seloNumero: { fontSize: 16, fontFamily: "Helvetica-Bold", color: CORES.destaque },
+  seloNumero: { fontSize: 13, fontFamily: "Helvetica-Bold", color: CORES.destaque },
   seloData: { fontSize: 7.5, color: CORES.cinza, marginTop: 2 },
 
-  // Faixa do título
   faixaTitulo: {
     backgroundColor: CORES.navy,
     borderRadius: 6,
@@ -90,14 +89,9 @@ const estilos = StyleSheet.create({
     paddingHorizontal: 14,
     marginBottom: 14,
   },
-  faixaTituloTexto: {
-    color: CORES.branco,
-    fontSize: 13,
-    fontFamily: "Helvetica-Bold",
-  },
+  faixaTituloTexto: { color: CORES.branco, fontSize: 13, fontFamily: "Helvetica-Bold" },
   faixaSubtitulo: { color: "#C7D6E6", fontSize: 9, marginTop: 3 },
 
-  // Seções
   secao: { marginBottom: 14 },
   secaoTitulo: {
     fontSize: 8,
@@ -116,7 +110,6 @@ const estilos = StyleSheet.create({
   campoRotulo: { fontSize: 7, color: CORES.cinza, letterSpacing: 0.4 },
   campoValor: { fontSize: 10, fontFamily: "Helvetica-Bold", marginTop: 1 },
 
-  // Destaque do veículo
   cartaoVeiculo: {
     flexDirection: "row",
     backgroundColor: CORES.fundoSuave,
@@ -146,7 +139,6 @@ const estilos = StyleSheet.create({
   },
   categoriaFaixa: { fontSize: 7.5, color: CORES.cinza, marginTop: 3 },
 
-  // Coberturas
   coberturasColunas: { flexDirection: "row" },
   coberturasColuna: { width: "50%", paddingRight: 10 },
   itemCobertura: { flexDirection: "row", marginBottom: 3.5 },
@@ -158,7 +150,6 @@ const estilos = StyleSheet.create({
   },
   itemCoberturaTexto: { flex: 1, fontSize: 9 },
 
-  // Benefícios
   beneficio: {
     borderWidth: 1,
     borderColor: CORES.cinzaClaro,
@@ -173,25 +164,11 @@ const estilos = StyleSheet.create({
     marginBottom: 6,
   },
   beneficioRotulo: { fontSize: 7, color: CORES.cinza, letterSpacing: 0.8 },
-  beneficioTitulo: {
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-    color: CORES.navy,
-  },
-  beneficioValor: {
-    fontSize: 13,
-    fontFamily: "Helvetica-Bold",
-    color: CORES.destaque,
-  },
+  beneficioTitulo: { fontSize: 11, fontFamily: "Helvetica-Bold", color: CORES.navy },
+  beneficioValor: { fontSize: 13, fontFamily: "Helvetica-Bold", color: CORES.destaque },
   beneficioDescricao: { fontSize: 8.5, color: "#33445A", lineHeight: 1.5 },
 
-  // Resumo financeiro
-  resumo: {
-    backgroundColor: CORES.navy,
-    borderRadius: 6,
-    padding: 14,
-    marginTop: 4,
-  },
+  resumo: { backgroundColor: CORES.navy, borderRadius: 6, padding: 14, marginTop: 4 },
   resumoLinha: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -200,24 +177,11 @@ const estilos = StyleSheet.create({
   },
   resumoRotulo: { color: "#C7D6E6", fontSize: 9 },
   resumoValor: { color: CORES.branco, fontSize: 9.5, fontFamily: "Helvetica-Bold" },
-  resumoDivisoria: {
-    borderTopWidth: 1,
-    borderTopColor: "#2F5B87",
-    marginVertical: 6,
-  },
-  resumoTotalRotulo: {
-    color: CORES.branco,
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-  },
-  resumoTotalValor: {
-    color: "#FFB27A",
-    fontSize: 20,
-    fontFamily: "Helvetica-Bold",
-  },
+  resumoDivisoria: { borderTopWidth: 1, borderTopColor: "#2F5B87", marginVertical: 6 },
+  resumoTotalRotulo: { color: CORES.branco, fontSize: 11, fontFamily: "Helvetica-Bold" },
+  resumoTotalValor: { color: "#FFB27A", fontSize: 20, fontFamily: "Helvetica-Bold" },
   resumoObs: { color: "#9FB6CC", fontSize: 7, marginTop: 6 },
 
-  // Observações e alertas
   caixaObservacao: {
     backgroundColor: "#FFF7ED",
     borderLeftWidth: 3,
@@ -234,7 +198,6 @@ const estilos = StyleSheet.create({
   },
   caixaObservacaoTexto: { fontSize: 8.5, color: "#7C2D12" },
 
-  // Rodapé
   rodape: {
     position: "absolute",
     bottom: 22,
@@ -272,28 +235,25 @@ const dinheiro = (v: number | null | undefined) => MOEDA.format(Number(v ?? 0))
 
 export interface DadosProposta {
   simulacao: Simulacao
-  cliente: Pick<
-    Cliente,
-    "nome" | "telefone" | "whatsapp" | "email" | "cidade" | "estado" | "observacoes"
-  >
-  veiculo: Pick<
-    Veiculo,
-    | "placa"
-    | "marca"
-    | "modelo"
-    | "ano_modelo"
-    | "ano_fabricacao"
-    | "restricoes"
-    | "restricoes_descricao"
-    | "observacoes"
-  >
-  categoria: Pick<Categoria, "codigo" | "nome" | "valor_min" | "valor_max"> | null
+  cliente: Cliente
+  veiculo: Veiculo
+  /** Reserva para simulações antigas, gravadas antes do snapshot. */
   configuracoes: Configuracoes
-  /** PNG em data URL, gerado antes da renderização. */
+  /** PNG em data URL, resolvido antes da renderização. */
   qrCodeDataUrl?: string | null
+  /** Logo já embutida como data URL (evita depender da rede no meio do render). */
+  logoDataUrl?: string | null
 }
 
-function Campo({ rotulo, valor, largo }: { rotulo: string; valor: string; largo?: boolean }) {
+function Campo({
+  rotulo,
+  valor,
+  largo,
+}: {
+  rotulo: string
+  valor: string
+  largo?: boolean
+}) {
   return (
     <View style={largo ? estilos.campoLargo : estilos.campo}>
       <Text style={estilos.campoRotulo}>{rotulo.toUpperCase()}</Text>
@@ -306,12 +266,38 @@ export function DocumentoProposta({
   simulacao,
   cliente,
   veiculo,
-  categoria,
   configuracoes,
   qrCodeDataUrl,
+  logoDataUrl,
 }: DadosProposta) {
-  const coberturas = (simulacao.coberturas_snapshot ?? []) as CoberturaSnapshot[]
-  const beneficios = (simulacao.beneficios_snapshot ?? []) as BeneficioSnapshot[]
+  const snap = simulacao.snapshot
+
+  const empresa = {
+    nome: snap?.empresa?.nome_associacao ?? configuracoes.nome_associacao,
+    cnpj: snap?.empresa?.cnpj ?? configuracoes.cnpj,
+    telefone: snap?.empresa?.telefone ?? configuracoes.telefone,
+    whatsapp: snap?.empresa?.whatsapp ?? configuracoes.whatsapp,
+    email: snap?.empresa?.email ?? configuracoes.email,
+    endereco: snap?.empresa?.endereco ?? configuracoes.endereco,
+    rodape: snap?.empresa?.rodape_pdf ?? configuracoes.rodape_pdf,
+    assinaturaNome: snap?.empresa?.assinatura_nome ?? configuracoes.assinatura_nome,
+    assinaturaCargo:
+      snap?.empresa?.assinatura_cargo ?? configuracoes.assinatura_cargo,
+  }
+
+  const categoria = snap?.categoria ?? null
+  const valores = snap?.valores ?? {
+    valor_mercado: simulacao.valor_mercado,
+    valor_rateio: simulacao.valor_rateio,
+    valor_terceiros: simulacao.valor_terceiros,
+    valor_assistencia: simulacao.valor_assistencia,
+    valor_beneficios_extras: simulacao.valor_beneficios_extras,
+    taxa_adesao: simulacao.taxa_adesao,
+    total_mensal: simulacao.total_mensal,
+  }
+
+  const coberturas: SnapshotCobertura[] = snap?.coberturas ?? []
+  const beneficios: SnapshotBeneficio[] = snap?.beneficios ?? []
 
   const meio = Math.ceil(coberturas.length / 2)
   const colunaEsquerda = coberturas.slice(0, meio)
@@ -319,57 +305,59 @@ export function DocumentoProposta({
 
   const dataSimulacao = new Date(simulacao.created_at)
   const validade = new Date(dataSimulacao)
-  validade.setDate(validade.getDate() + (configuracoes.validade_proposta_dias ?? 7))
+  validade.setDate(
+    validade.getDate() +
+      (snap?.validade_dias ?? configuracoes.validade_proposta_dias ?? 30)
+  )
 
   const restricoesMarcadas = (veiculo.restricoes ?? [])
     .map((r) => RESTRICOES_VEICULO.find((item) => item.valor === r)?.rotulo)
     .filter(Boolean) as string[]
 
   const contato = [
-    configuracoes.telefone && `Tel. ${configuracoes.telefone}`,
-    configuracoes.whatsapp && `WhatsApp ${configuracoes.whatsapp}`,
-    configuracoes.email,
+    empresa.telefone && `Tel. ${empresa.telefone}`,
+    empresa.whatsapp && `WhatsApp ${empresa.whatsapp}`,
+    empresa.email,
   ]
     .filter(Boolean)
     .join("  ·  ")
 
   const modeloCompleto = [veiculo.marca, veiculo.modelo].filter(Boolean).join(" ")
   const anos = [veiculo.ano_fabricacao, veiculo.ano_modelo].filter(Boolean).join("/")
+  const nomeCliente =
+    cliente.tipo_pessoa === "pj" ? cliente.razao_social || cliente.nome : cliente.nome
 
   return (
     <Document
       title={`Proposta ${simulacao.numero} — ${veiculo.placa}`}
-      author={configuracoes.nome_empresa}
+      author={empresa.nome ?? "ABPAC"}
       subject="Simulação de proteção veicular"
-      creator={configuracoes.nome_empresa}
+      creator={empresa.nome ?? "ABPAC"}
     >
       <Page size="A4" style={estilos.pagina}>
-        {/* Cabeçalho */}
         <View style={estilos.cabecalho} fixed>
           <View style={estilos.cabecalhoEsquerda}>
-            {configuracoes.logo_url ? (
-              <Image style={estilos.logo} src={configuracoes.logo_url} />
+            {logoDataUrl ? (
+              <Image style={estilos.logo} src={logoDataUrl} />
             ) : (
               <View style={estilos.logoVazio}>
                 <Text style={estilos.logoVazioTexto}>
-                  {configuracoes.nome_empresa.slice(0, 2).toUpperCase()}
+                  {(empresa.nome ?? "AB").slice(0, 2).toUpperCase()}
                 </Text>
               </View>
             )}
             <View>
-              <Text style={estilos.nomeEmpresa}>{configuracoes.nome_empresa}</Text>
-              {!!configuracoes.cnpj && (
-                <Text style={estilos.contatoEmpresa}>CNPJ {configuracoes.cnpj}</Text>
+              <Text style={estilos.nomeEmpresa}>{empresa.nome}</Text>
+              {!!empresa.cnpj && (
+                <Text style={estilos.contatoEmpresa}>CNPJ {empresa.cnpj}</Text>
               )}
               {!!contato && <Text style={estilos.contatoEmpresa}>{contato}</Text>}
             </View>
           </View>
 
           <View style={estilos.selo}>
-            <Text style={estilos.seloRotulo}>PROPOSTA Nº</Text>
-            <Text style={estilos.seloNumero}>
-              {`#${String(simulacao.numero).padStart(6, "0")}`}
-            </Text>
+            <Text style={estilos.seloRotulo}>PROPOSTA</Text>
+            <Text style={estilos.seloNumero}>{simulacao.numero}</Text>
             <Text style={estilos.seloData}>
               {`Emitida em ${dataSimulacao.toLocaleDateString("pt-BR")}`}
             </Text>
@@ -379,17 +367,15 @@ export function DocumentoProposta({
           </View>
         </View>
 
-        {/* Título */}
         <View style={estilos.faixaTitulo}>
           <Text style={estilos.faixaTituloTexto}>
             {`Sobre a cobertura da placa ${veiculo.placa}`}
           </Text>
           <Text style={estilos.faixaSubtitulo}>
-            {`Simulação de proteção veicular preparada para ${cliente.nome}`}
+            {`Simulação de proteção veicular preparada para ${nomeCliente}`}
           </Text>
         </View>
 
-        {/* Veículo em destaque */}
         <View style={estilos.cartaoVeiculo}>
           <View style={estilos.cartaoVeiculoBloco}>
             <Text style={estilos.cartaoVeiculoPlaca}>{veiculo.placa}</Text>
@@ -401,38 +387,30 @@ export function DocumentoProposta({
               Valor de mercado
             </Text>
             <Text
-              style={{
-                fontSize: 14,
-                fontFamily: "Helvetica-Bold",
-                color: CORES.navy,
-              }}
+              style={{ fontSize: 14, fontFamily: "Helvetica-Bold", color: CORES.navy }}
             >
-              {dinheiro(simulacao.valor_mercado)}
+              {dinheiro(valores.valor_mercado)}
             </Text>
           </View>
 
           <View style={estilos.cartaoVeiculoDireita}>
-            <Text style={estilos.categoriaEtiqueta}>
-              {categoria?.codigo ?? "—"}
-            </Text>
+            <Text style={estilos.categoriaEtiqueta}>{categoria?.codigo ?? "—"}</Text>
             <Text style={estilos.categoriaFaixa}>{descreverFaixa(categoria)}</Text>
           </View>
         </View>
 
-        {/* Cliente */}
         <View style={estilos.secao}>
           <Text style={estilos.secaoTitulo}>DADOS DO CLIENTE</Text>
           <View style={estilos.linha}>
-            <Campo rotulo="Nome" valor={cliente.nome} largo />
+            <Campo rotulo="Nome" valor={nomeCliente} largo />
             <Campo rotulo="Telefone" valor={cliente.telefone ?? ""} />
             <Campo
               rotulo="Cidade / UF"
-              valor={[cliente.cidade, cliente.estado].filter(Boolean).join(" / ")}
+              valor={[cliente.cidade, cliente.uf].filter(Boolean).join(" / ")}
             />
           </View>
         </View>
 
-        {/* Coberturas */}
         <View style={estilos.secao} wrap={false}>
           <Text style={estilos.secaoTitulo}>COBERTURAS INCLUÍDAS</Text>
           <View style={estilos.coberturasColunas}>
@@ -455,17 +433,14 @@ export function DocumentoProposta({
           </View>
         </View>
 
-        {/* Benefícios */}
         <View style={estilos.secao}>
           <Text style={estilos.secaoTitulo}>BENEFÍCIOS CONTRATADOS</Text>
           {beneficios.map((b, i) => (
-            <View key={b.chave ?? i} style={estilos.beneficio} wrap={false}>
+            <View key={b.codigo ?? i} style={estilos.beneficio} wrap={false}>
               <View style={estilos.beneficioCabecalho}>
                 <View>
-                  <Text style={estilos.beneficioRotulo}>
-                    {`BENEFÍCIO ${i + 1}`}
-                  </Text>
-                  <Text style={estilos.beneficioTitulo}>{b.titulo}</Text>
+                  <Text style={estilos.beneficioRotulo}>{`BENEFÍCIO ${i + 1}`}</Text>
+                  <Text style={estilos.beneficioTitulo}>{b.nome}</Text>
                 </View>
                 <Text style={estilos.beneficioValor}>{dinheiro(b.valor)}</Text>
               </View>
@@ -474,7 +449,6 @@ export function DocumentoProposta({
           ))}
         </View>
 
-        {/* Restrições declaradas — precisa aparecer, muda a análise de risco */}
         {(restricoesMarcadas.length > 0 || !!veiculo.restricoes_descricao) && (
           <View style={estilos.caixaObservacao} wrap={false}>
             <Text style={estilos.caixaObservacaoTitulo}>
@@ -493,20 +467,17 @@ export function DocumentoProposta({
           </View>
         )}
 
-        {/* Resumo */}
         <View style={estilos.secao} wrap={false}>
           <Text style={estilos.secaoTitulo}>RESUMO DA PROPOSTA</Text>
           <View style={estilos.resumo}>
             <View style={estilos.resumoLinha}>
               <Text style={estilos.resumoRotulo}>Valor do rateio</Text>
-              <Text style={estilos.resumoValor}>
-                {dinheiro(simulacao.valor_rateio)}
-              </Text>
+              <Text style={estilos.resumoValor}>{dinheiro(valores.valor_rateio)}</Text>
             </View>
-            {/* Uma linha por benefício vendido, na mesma ordem da seção acima */}
+
             {beneficios.map((b, i) => (
-              <View key={`resumo-${b.chave ?? i}`} style={estilos.resumoLinha}>
-                <Text style={estilos.resumoRotulo}>{b.titulo}</Text>
+              <View key={`resumo-${b.codigo ?? i}`} style={estilos.resumoLinha}>
+                <Text style={estilos.resumoRotulo}>{b.nome}</Text>
                 <Text style={estilos.resumoValor}>{dinheiro(b.valor)}</Text>
               </View>
             ))}
@@ -516,19 +487,15 @@ export function DocumentoProposta({
             <View style={estilos.resumoLinha}>
               <Text style={estilos.resumoTotalRotulo}>VALOR MENSAL</Text>
               <Text style={estilos.resumoTotalValor}>
-                {dinheiro(simulacao.valor_mensal)}
+                {dinheiro(valores.total_mensal)}
               </Text>
             </View>
 
             <View style={estilos.resumoDivisoria} />
 
             <View style={estilos.resumoLinha}>
-              <Text style={estilos.resumoRotulo}>
-                Taxa de adesão (cobrança única)
-              </Text>
-              <Text style={estilos.resumoValor}>
-                {dinheiro(simulacao.taxa_adesao)}
-              </Text>
+              <Text style={estilos.resumoRotulo}>Taxa de adesão (cobrança única)</Text>
+              <Text style={estilos.resumoValor}>{dinheiro(valores.taxa_adesao)}</Text>
             </View>
 
             <Text style={estilos.resumoObs}>
@@ -539,7 +506,6 @@ export function DocumentoProposta({
           </View>
         </View>
 
-        {/* Observações da simulação */}
         {!!simulacao.observacoes && (
           <View style={estilos.secao} wrap={false}>
             <Text style={estilos.secaoTitulo}>OBSERVAÇÕES</Text>
@@ -549,33 +515,31 @@ export function DocumentoProposta({
           </View>
         )}
 
-        {/* Rodapé */}
         <View style={estilos.rodape} fixed>
           <View>
-            <Text style={estilos.rodapeTexto}>{configuracoes.rodape_pdf}</Text>
-            {!!configuracoes.endereco && (
-              <Text style={estilos.rodapeTexto}>{configuracoes.endereco}</Text>
+            {!!empresa.rodape && (
+              <Text style={estilos.rodapeTexto}>{empresa.rodape}</Text>
+            )}
+            {!!empresa.endereco && (
+              <Text style={estilos.rodapeTexto}>{empresa.endereco}</Text>
             )}
             {!!contato && <Text style={estilos.rodapeTexto}>{contato}</Text>}
             <Text
               style={estilos.paginacao}
               render={({ pageNumber, totalPages }) =>
-                `Proposta #${String(simulacao.numero).padStart(6, "0")}  ·  ` +
-                `Página ${pageNumber} de ${totalPages}`
+                `${simulacao.numero}  ·  Página ${pageNumber} de ${totalPages}`
               }
             />
           </View>
 
           <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
-            {!!configuracoes.assinatura_nome && (
+            {!!empresa.assinaturaNome && (
               <View style={estilos.assinatura}>
                 <View style={estilos.assinaturaLinha} />
-                <Text style={estilos.assinaturaNome}>
-                  {configuracoes.assinatura_nome}
-                </Text>
-                {!!configuracoes.assinatura_cargo && (
+                <Text style={estilos.assinaturaNome}>{empresa.assinaturaNome}</Text>
+                {!!empresa.assinaturaCargo && (
                   <Text style={estilos.assinaturaCargo}>
-                    {configuracoes.assinatura_cargo}
+                    {empresa.assinaturaCargo}
                   </Text>
                 )}
               </View>

@@ -84,9 +84,7 @@ export default function PaginaClienteDetalhe() {
     try {
       const dados = await obterCliente(id)
       setCliente(dados)
-      // Reaproveita a busca da listagem — filtra pelo nome do próprio cliente.
-      const todas = await listarSimulacoes({ limite: 200 })
-      setSimulacoes(todas.filter((s) => s.cliente_id === id))
+      setSimulacoes(await listarSimulacoes({ clienteId: id, limite: 200 }))
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao carregar.")
     } finally {
@@ -182,8 +180,8 @@ export default function PaginaClienteDetalhe() {
       <div className="space-y-1.5">
         <Label htmlFor="estado">Estado</Label>
         <Select
-          value={cliente.estado ?? undefined}
-          onValueChange={(v) => atualizar({ estado: v })}
+          value={cliente.uf ?? undefined}
+          onValueChange={(v) => atualizar({ uf: v })}
         >
           <SelectTrigger id="estado" className="w-full">
             <SelectValue placeholder="UF" />
@@ -258,17 +256,17 @@ export default function PaginaClienteDetalhe() {
         onValueChange={(v) => atualizar({ tipo_pessoa: v as TipoPessoa })}
       >
         <TabsList>
-          <TabsTrigger value="fisica" className="gap-1.5">
+          <TabsTrigger value="pf" className="gap-1.5">
             <User className="size-4" />
             Pessoa Física
           </TabsTrigger>
-          <TabsTrigger value="juridica" className="gap-1.5">
+          <TabsTrigger value="pj" className="gap-1.5">
             <Building2 className="size-4" />
             Pessoa Jurídica
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="fisica" className="mt-4 space-y-5">
+        <TabsContent value="pf" className="mt-4 space-y-5">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Dados pessoais</CardTitle>
@@ -321,7 +319,7 @@ export default function PaginaClienteDetalhe() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="juridica" className="mt-4 space-y-5">
+        <TabsContent value="pj" className="mt-4 space-y-5">
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Dados da empresa</CardTitle>
@@ -420,7 +418,7 @@ export default function PaginaClienteDetalhe() {
                     </span>
                     <span className="text-muted-foreground block text-xs">
                       {formatarData(s.created_at)} ·{" "}
-                      {formatarMoeda(s.valor_mensal)}/mês
+                      {formatarMoeda(s.total_mensal)}/mês
                     </span>
                   </Link>
                   <EtiquetaCategoria codigo={s.categoria_codigo} />

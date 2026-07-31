@@ -45,18 +45,15 @@ import { calcularTotais, descreverFaixa, resolverCategoria, validarSimulacao } f
 import { formatarMoeda, formatarPlaca, placaValida } from "@/lib/crm/format"
 import { obterSimulacaoCompleta, salvarSimulacao } from "@/lib/crm/queries"
 import {
+  CODIGO_ASSISTENCIA,
+  CODIGO_TERCEIROS,
   ESTADOS_BR,
   RESTRICOES_VEICULO,
-  type BeneficioSnapshot,
   type Cliente,
-  type CoberturaSnapshot,
   type RestricaoVeiculo,
   type Simulacao,
   type Veiculo,
 } from "@/lib/crm/types"
-
-const CHAVE_TERCEIROS = "protecao_terceiros"
-const CHAVE_ASSISTENCIA = "assistencia_24h"
 
 const ETAPAS = [
   { titulo: "Cliente", icone: User },
@@ -72,7 +69,7 @@ interface FormularioCliente {
   whatsapp: string
   email: string
   cidade: string
-  estado: string
+  uf: string
   observacoes: string
 }
 
@@ -90,8 +87,8 @@ interface FormularioVeiculo {
 }
 
 interface FormularioBeneficio {
-  chave: string
-  titulo: string
+  codigo: string
+  nome: string
   descricao: string
   valor: number
   incluido: boolean
@@ -124,7 +121,7 @@ export function FormularioSimulacao({
     whatsapp: existente?.cliente.whatsapp ?? "",
     email: existente?.cliente.email ?? "",
     cidade: existente?.cliente.cidade ?? "",
-    estado: existente?.cliente.estado ?? "",
+    uf: existente?.cliente.uf ?? "",
     observacoes: existente?.cliente.observacoes ?? "",
   }))
 
@@ -135,7 +132,9 @@ export function FormularioSimulacao({
     modelo: existente?.veiculo.modelo ?? "",
     anoModelo: existente?.veiculo.ano_modelo?.toString() ?? "",
     anoFabricacao: existente?.veiculo.ano_fabricacao?.toString() ?? "",
-    valorMercado: Number(existente?.veiculo.valor_mercado ?? 0),
+    // O valor de mercado é da simulação: o mesmo caminhão pode ser
+    // reavaliado em datas diferentes.
+    valorMercado: Number(existente?.simulacao.valor_mercado ?? 0),
     restricoes: (existente?.veiculo.restricoes ?? []) as RestricaoVeiculo[],
     restricoesDescricao: existente?.veiculo.restricoes_descricao ?? "",
     observacoes: existente?.veiculo.observacoes ?? "",
@@ -145,7 +144,7 @@ export function FormularioSimulacao({
     () => {
       if (existente) {
         const nomes = new Set(
-          (existente.simulacao.coberturas_snapshot ?? []).map((c) => c.nome)
+          (existente.simulacao.snapshot?.coberturas ?? []).map((c) => c.nome)
         )
         return coberturas.filter((c) => nomes.has(c.nome)).map((c) => c.id)
       }
@@ -155,15 +154,15 @@ export function FormularioSimulacao({
 
   const [beneficiosForm, setBeneficiosForm] = useState<FormularioBeneficio[]>(() => {
     if (existente) {
-      const gravados = existente.simulacao.beneficios_snapshot ?? []
+      const gravados = existente.simulacao.snapshot?.beneficios ?? []
       // O cadastro manda a ordem; o que foi vendido manda no valor e no texto.
       return beneficios
         .filter((b) => b.ativo)
         .map((b) => {
-          const gravado = gravados.find((g) => g.chave === b.chave)
+          const gravado = gravados.find((g) => g.codigo === b.codigo)
           return {
-            chave: b.chave,
-            titulo: gravado?.titulo ?? b.titulo,
+            codigo: b.codigo,
+            nome: gravado?.nome ?? b.nome,
             descricao: gravado?.descricao ?? b.descricao,
             valor: Number(gravado?.valor ?? b.valor_padrao),
             incluido: !!gravado,
@@ -173,8 +172,8 @@ export function FormularioSimulacao({
     return beneficios
       .filter((b) => b.ativo)
       .map((b) => ({
-        chave: b.chave,
-        titulo: b.titulo,
+        codigo: b.codigo,
+        nome: b.nome,
         descricao: b.descricao,
         valor: Number(b.valor_padrao),
         incluido: b.padrao,
@@ -201,24 +200,28 @@ export function FormularioSimulacao({
   // um valor próprio — depois disso, não mexemos mais no que ele escreveu.
   useEffect(() => {
     if (rateioTocado) return
-    if (categoria?.rateio_sugerido) setValorRateio(Number(categoria.rateio_sugerido))
+    if (categoria?.rateio_padrao) setValorRateio(Number(categoria.rateio_padrao))
   }, [categoria, rateioTocado])
 
-  const beneficioPorChave = (chave: string) =>
-    beneficiosForm.find((b) => b.chave === chave && b.incluido)
+  const beneficioPorCodigo = (codigo: string) =>
+    beneficiosForm.find((b) => b.codigo === codigo && b.incluido)
 
-  const valorTerceiros = beneficioPorChave(CHAVE_TERCEIROS)?.valor ?? 0
-  const valorAssistencia = beneficioPorChave(CHAVE_ASSISTENCIA)?.valor ?? 0
+  const valorTerceiros = beneficioPorCodigo(CODIGO_TERCEIROS)?.valor ?? 0
+  const valorAssistencia = beneficioPorCodigo(CODIGO_ASSISTENCIA)?.valor ?? 0
+  // Benefícios que o admin cadastrou além dos dois padrão entram como extras;
+  // sem isso o total mensal ficaria menor do que o que foi vendido.
   const valorExtras = beneficiosForm
     .filter(
       (b) =>
-        b.incluido && b.chave !== CHAVE_TERCEIROS && b.chave !== CHAVE_ASSISTENCIA
+        b.incluido &&
+        b.codigo !== CODIGO_TERCEIROS &&
+        b.codigo !== CODIGO_ASSISTENCIA
     )
     .reduce((soma, b) => soma + Number(b.valor || 0), 0)
 
   const totais = calcularTotais({
     valorRateio,
-    valorProtecaoTerceiros: valorTerceiros,
+    valorTerceiros,
     valorAssistencia,
     valorBeneficiosExtras: valorExtras,
     taxaAdesao,
@@ -246,23 +249,23 @@ export function FormularioSimulacao({
     }))
   }
 
-  function atualizarBeneficio(chave: string, patch: Partial<FormularioBeneficio>) {
+  function atualizarBeneficio(codigo: string, patch: Partial<FormularioBeneficio>) {
     setBeneficiosForm((atual) =>
-      atual.map((b) => (b.chave === chave ? { ...b, ...patch } : b))
+      atual.map((b) => (b.codigo === codigo ? { ...b, ...patch } : b))
     )
   }
 
   function montarPayload(status: "rascunho" | "gerada") {
-    const coberturasSnapshot: CoberturaSnapshot[] = coberturas
+    const coberturasEscolhidas = coberturas
       .filter((c) => coberturasSelecionadas.includes(c.id))
       .sort((a, b) => a.ordem - b.ordem)
       .map((c) => ({ nome: c.nome, descricao: c.descricao }))
 
-    const beneficiosSnapshot: BeneficioSnapshot[] = beneficiosForm
+    const beneficiosEscolhidos = beneficiosForm
       .filter((b) => b.incluido)
       .map((b) => ({
-        chave: b.chave,
-        titulo: b.titulo,
+        codigo: b.codigo,
+        nome: b.nome,
         descricao: b.descricao,
         valor: Number(b.valor || 0),
       }))
@@ -276,7 +279,7 @@ export function FormularioSimulacao({
         whatsapp: cliente.whatsapp || null,
         email: cliente.email || null,
         cidade: cliente.cidade || null,
-        estado: cliente.estado || null,
+        uf: cliente.uf || null,
         observacoes: cliente.observacoes || null,
       },
       veiculo: {
@@ -286,19 +289,18 @@ export function FormularioSimulacao({
         modelo: veiculo.modelo || null,
         ano_modelo: veiculo.anoModelo || null,
         ano_fabricacao: veiculo.anoFabricacao || null,
-        valor_mercado: veiculo.valorMercado,
         restricoes: veiculo.restricoes,
         restricoes_descricao: veiculo.restricoesDescricao || null,
         observacoes: veiculo.observacoes || null,
       },
       valor_mercado: veiculo.valorMercado,
       valor_rateio: valorRateio,
-      valor_protecao_terceiros: valorTerceiros,
+      valor_terceiros: valorTerceiros,
       valor_assistencia: valorAssistencia,
       valor_beneficios_extras: valorExtras,
       taxa_adesao: taxaAdesao,
-      coberturas_snapshot: coberturasSnapshot,
-      beneficios_snapshot: beneficiosSnapshot,
+      coberturas: coberturasEscolhidas,
+      beneficios: beneficiosEscolhidos,
       observacoes: observacoes || null,
       status,
     }
@@ -345,7 +347,6 @@ export function FormularioSimulacao({
         simulacao: salvo.simulacao,
         cliente: salvo.cliente,
         veiculo: salvo.veiculo,
-        categoria: categorias.find((c) => c.id === salvo.simulacao.categoria_id) ?? null,
         configuracoes,
       })
 
@@ -466,12 +467,12 @@ export function FormularioSimulacao({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label htmlFor="cliente-estado">Estado</Label>
+                  <Label htmlFor="cliente-uf">Estado</Label>
                   <Select
-                    value={cliente.estado || undefined}
-                    onValueChange={(v) => setCliente({ ...cliente, estado: v })}
+                    value={cliente.uf || undefined}
+                    onValueChange={(v) => setCliente({ ...cliente, uf: v })}
                   >
-                    <SelectTrigger id="cliente-estado" className="w-full">
+                    <SelectTrigger id="cliente-uf" className="w-full">
                       <SelectValue placeholder="UF" />
                     </SelectTrigger>
                     <SelectContent>
@@ -701,43 +702,43 @@ export function FormularioSimulacao({
               </Card>
 
               {beneficiosForm.map((b, indice) => (
-                <Card key={b.chave}>
+                <Card key={b.codigo}>
                   <CardHeader className="flex flex-row items-start justify-between space-y-0">
                     <div className="flex items-start gap-3">
                       <Checkbox
                         className="mt-1"
                         checked={b.incluido}
                         onCheckedChange={(v) =>
-                          atualizarBeneficio(b.chave, { incluido: v === true })
+                          atualizarBeneficio(b.codigo, { incluido: v === true })
                         }
                       />
                       <div>
                         <p className="text-muted-foreground text-xs">
                           Benefício {indice + 1}
                         </p>
-                        <CardTitle className="text-base">{b.titulo}</CardTitle>
+                        <CardTitle className="text-base">{b.nome}</CardTitle>
                       </div>
                     </div>
                     <div className="w-36">
                       <CampoMoeda
                         valor={b.valor}
-                        onChange={(v) => atualizarBeneficio(b.chave, { valor: v })}
+                        onChange={(v) => atualizarBeneficio(b.codigo, { valor: v })}
                         disabled={!b.incluido}
                       />
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <Label htmlFor={`beneficio-${b.chave}`} className="text-xs">
+                    <Label htmlFor={`beneficio-${b.codigo}`} className="text-xs">
                       Descrição que sai na proposta
                     </Label>
                     <Textarea
-                      id={`beneficio-${b.chave}`}
+                      id={`beneficio-${b.codigo}`}
                       className="mt-1.5 font-mono text-xs"
                       rows={8}
                       value={b.descricao}
                       disabled={!b.incluido}
                       onChange={(e) =>
-                        atualizarBeneficio(b.chave, { descricao: e.target.value })
+                        atualizarBeneficio(b.codigo, { descricao: e.target.value })
                       }
                     />
                   </CardContent>
@@ -775,8 +776,8 @@ export function FormularioSimulacao({
                       setValorRateio(v)
                     }}
                     descricao={
-                      categoria?.rateio_sugerido
-                        ? `Sugerido para a faixa: ${formatarMoeda(categoria.rateio_sugerido)}`
+                      categoria?.rateio_padrao
+                        ? `Sugerido para a faixa: ${formatarMoeda(categoria.rateio_padrao)}`
                         : undefined
                     }
                   />
@@ -787,14 +788,14 @@ export function FormularioSimulacao({
                 <div className="space-y-3">
                   {beneficiosForm.map((b) => (
                     <div
-                      key={b.chave}
+                      key={b.codigo}
                       className={cn(
                         "flex items-center justify-between gap-4 rounded-lg border p-3",
                         !b.incluido && "opacity-50"
                       )}
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{b.titulo}</p>
+                        <p className="truncate text-sm font-medium">{b.nome}</p>
                         <p className="text-muted-foreground text-xs">
                           {b.incluido ? "Incluído na mensalidade" : "Não incluído"}
                         </p>
@@ -803,7 +804,7 @@ export function FormularioSimulacao({
                         <CampoMoeda
                           valor={b.valor}
                           disabled={!b.incluido}
-                          onChange={(v) => atualizarBeneficio(b.chave, { valor: v })}
+                          onChange={(v) => atualizarBeneficio(b.codigo, { valor: v })}
                         />
                       </div>
                     </div>
@@ -914,10 +915,10 @@ export function FormularioSimulacao({
                 .filter((b) => b.incluido)
                 .map((b) => (
                   <div
-                    key={b.chave}
+                    key={b.codigo}
                     className="flex items-center justify-between gap-2 text-sm"
                   >
-                    <span className="text-muted-foreground truncate">{b.titulo}</span>
+                    <span className="text-muted-foreground truncate">{b.nome}</span>
                     <span className="shrink-0 font-medium tabular-nums">
                       {formatarMoeda(b.valor)}
                     </span>
@@ -931,7 +932,7 @@ export function FormularioSimulacao({
                   Valor mensal
                 </p>
                 <p className="text-2xl font-bold tabular-nums">
-                  {formatarMoeda(totais.valorMensal)}
+                  {formatarMoeda(totais.totalMensal)}
                 </p>
               </div>
 

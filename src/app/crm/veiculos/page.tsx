@@ -16,9 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { EtiquetaCategoria } from "@/components/crm/etiquetas"
 import { listarVeiculos, type VeiculoComCliente } from "@/lib/crm/queries"
-import { formatarMoeda, formatarPlaca } from "@/lib/crm/format"
+import { formatarPlaca } from "@/lib/crm/format"
 import { RESTRICOES_VEICULO } from "@/lib/crm/types"
 
 function ListaVeiculos() {
@@ -82,8 +81,6 @@ function ListaVeiculos() {
                     <TableHead>Marca / Modelo</TableHead>
                     <TableHead className="hidden sm:table-cell">Ano</TableHead>
                     <TableHead className="hidden lg:table-cell">Cliente</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
-                    <TableHead>Cat.</TableHead>
                     <TableHead className="hidden xl:table-cell">Situação</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -102,12 +99,6 @@ function ListaVeiculos() {
                       </TableCell>
                       <TableCell className="text-muted-foreground hidden max-w-[200px] truncate lg:table-cell">
                         {v.cliente?.nome ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatarMoeda(v.valor_mercado)}
-                      </TableCell>
-                      <TableCell>
-                        <EtiquetaCategoria codigo={v.categoria?.codigo} />
                       </TableCell>
                       <TableCell className="text-muted-foreground hidden max-w-[220px] truncate text-xs xl:table-cell">
                         {(v.restricoes ?? []).length === 0

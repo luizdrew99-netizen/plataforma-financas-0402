@@ -18,11 +18,7 @@ import {
 } from "@/components/ui/table"
 import { EtiquetaStatus } from "@/components/crm/etiquetas"
 import { listarPdfs, urlAssinadaPdf, type PdfComSimulacao } from "@/lib/crm/queries"
-import {
-  formatarDataHora,
-  formatarNumeroSimulacao,
-  formatarPlaca,
-} from "@/lib/crm/format"
+import { formatarDataHora, formatarPlaca } from "@/lib/crm/format"
 
 export default function PaginaPdfs() {
   const [pdfs, setPdfs] = useState<PdfComSimulacao[]>([])
@@ -92,7 +88,7 @@ export default function PaginaPdfs() {
                         href={`/crm/simulacoes/${p.simulacao_id}`}
                         className="hover:underline"
                       >
-                        {formatarNumeroSimulacao(p.simulacao?.numero ?? 0)}
+                        {p.simulacao?.numero ?? "—"}
                       </Link>
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">
@@ -112,14 +108,11 @@ export default function PaginaPdfs() {
                     <TableCell className="text-muted-foreground hidden text-sm lg:table-cell">
                       {formatarDataHora(p.created_at)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground hidden text-sm tabular-nums sm:table-cell">
-                      {p.tamanho_bytes ? `${Math.round(p.tamanho_bytes / 1024)} KB` : "—"}
-                    </TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => void abrir(p.arquivo_path)}
+                        onClick={() => void abrir(p.storage_path)}
                         className="gap-1.5"
                       >
                         <FileDown className="size-4" />

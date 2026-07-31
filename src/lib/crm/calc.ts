@@ -1,25 +1,26 @@
 /**
  * Regras de cálculo da simulação.
  *
- * O banco também calcula `valor_mensal` (coluna gerada), mas a tela precisa
- * do total em tempo real enquanto o consultor digita. As duas contas são a
- * mesma fórmula de propósito — se uma mudar, a outra tem que mudar junto.
+ * A conta existe em dois lugares de propósito: a tela precisa do total em
+ * tempo real enquanto o consultor digita, e o banco recalcula em
+ * `salvar_simulacao` — que é a fonte da verdade gravada em `total_mensal`.
+ * Se a fórmula mudar, tem que mudar nos dois.
  */
 
 import type { Categoria } from "./types"
 
 export interface ValoresSimulacao {
   valorRateio: number
-  valorProtecaoTerceiros: number
+  valorTerceiros: number
   valorAssistencia: number
-  /** Soma dos benefícios extras cadastrados pelo admin. */
+  /** Soma dos benefícios cadastrados além dos dois padrão. */
   valorBeneficiosExtras?: number
   taxaAdesao: number
 }
 
 export interface TotaisSimulacao {
-  /** Rateio + proteção para terceiros + assistência 24h. */
-  valorMensal: number
+  /** Rateio + proteção para terceiros + assistência 24h + extras. */
+  totalMensal: number
   /** Cobrança única na adesão, fora da mensalidade. */
   taxaAdesao: number
   /** O que o cliente desembolsa no primeiro mês. */
@@ -31,26 +32,26 @@ export interface TotaisSimulacao {
 const arredondar = (n: number) => Math.round((Number(n) || 0) * 100) / 100
 
 export function calcularTotais(valores: ValoresSimulacao): TotaisSimulacao {
-  const valorMensal = arredondar(
+  const totalMensal = arredondar(
     (Number(valores.valorRateio) || 0) +
-      (Number(valores.valorProtecaoTerceiros) || 0) +
+      (Number(valores.valorTerceiros) || 0) +
       (Number(valores.valorAssistencia) || 0) +
       (Number(valores.valorBeneficiosExtras) || 0)
   )
   const taxaAdesao = arredondar(Number(valores.taxaAdesao) || 0)
 
   return {
-    valorMensal,
+    totalMensal,
     taxaAdesao,
-    primeiroPagamento: arredondar(valorMensal + taxaAdesao),
-    totalPrimeiroAno: arredondar(valorMensal * 12 + taxaAdesao),
+    primeiroPagamento: arredondar(totalMensal + taxaAdesao),
+    totalPrimeiroAno: arredondar(totalMensal * 12 + taxaAdesao),
   }
 }
 
 /**
- * Espelha `crm_categoria_por_valor` do banco: faixa exata, senão a faixa
- * mais próxima por baixo, senão a primeira. Nunca devolve indefinido quando
- * existe ao menos uma categoria ativa.
+ * Espelha o que `salvar_simulacao` faz no banco: faixa exata; se o valor cair
+ * num vão entre faixas, a mais próxima por baixo; em último caso, a primeira.
+ * Nunca devolve vazio havendo ao menos uma categoria ativa.
  */
 export function resolverCategoria(
   valorMercado: number,
@@ -77,11 +78,14 @@ export function resolverCategoria(
   return abaixo ?? ativas[0]
 }
 
-/** "Cobertura de R$ 250.000,01 até R$ 350.000,00" / "Acima de R$ 350.000,00". */
+/** "De R$ 250.000,01 até R$ 350.000,00" / "Acima de R$ 350.000,00". */
 export function descreverFaixa(
-  categoria: Pick<Categoria, "valor_min" | "valor_max"> | null | undefined
+  categoria:
+    | { valor_min: number | null; valor_max: number | null }
+    | null
+    | undefined
 ): string {
-  if (!categoria) return "—"
+  if (!categoria || categoria.valor_min === null) return "—"
   const fmt = (n: number) =>
     n.toLocaleString("pt-BR", {
       style: "currency",
@@ -93,7 +97,7 @@ export function descreverFaixa(
   if (categoria.valor_max === null || categoria.valor_max === undefined) {
     return `Acima de ${fmt(min)}`
   }
-  if (min <= 0) return `Até ${fmt(Number(categoria.valor_max))}`
+  if (min <= 0.01) return `Até ${fmt(Number(categoria.valor_max))}`
   return `De ${fmt(min)} até ${fmt(Number(categoria.valor_max))}`
 }
 

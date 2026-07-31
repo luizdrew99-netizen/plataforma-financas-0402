@@ -109,9 +109,9 @@ export default function PaginaRelatorios() {
 
   const totais = useMemo(() => {
     const confirmadas = filtradas.filter((s) => s.status === "confirmada")
-    const somaMensal = filtradas.reduce((t, s) => t + Number(s.valor_mensal), 0)
+    const somaMensal = filtradas.reduce((t, s) => t + Number(s.total_mensal), 0)
     const somaConfirmada = confirmadas.reduce(
-      (t, s) => t + Number(s.valor_mensal),
+      (t, s) => t + Number(s.total_mensal),
       0
     )
     return {
@@ -140,7 +140,7 @@ export default function PaginaRelatorios() {
       formatarData(s.created_at),
       s.cliente_nome,
       s.cliente_cidade ?? "",
-      s.cliente_estado ?? "",
+      s.cliente_uf ?? "",
       s.cliente_telefone ?? "",
       formatarPlaca(s.veiculo_placa),
       s.veiculo_marca ?? "",
@@ -149,9 +149,9 @@ export default function PaginaRelatorios() {
       s.categoria_codigo ?? "",
       String(s.valor_mercado).replace(".", ","),
       String(s.valor_rateio).replace(".", ","),
-      String(s.valor_protecao_terceiros).replace(".", ","),
+      String(s.valor_terceiros).replace(".", ","),
       String(s.valor_assistencia).replace(".", ","),
-      String(s.valor_mensal).replace(".", ","),
+      String(s.total_mensal).replace(".", ","),
       String(s.taxa_adesao).replace(".", ","),
       STATUS_SIMULACAO[s.status].rotulo,
     ])
@@ -301,7 +301,7 @@ export default function PaginaRelatorios() {
                         {formatarMoeda(s.valor_mercado)}
                       </TableCell>
                       <TableCell className="text-right font-medium tabular-nums">
-                        {formatarMoeda(s.valor_mensal)}
+                        {formatarMoeda(s.total_mensal)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatarMoeda(s.taxa_adesao)}

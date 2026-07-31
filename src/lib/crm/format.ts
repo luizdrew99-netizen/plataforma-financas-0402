@@ -159,9 +159,12 @@ export function formatarMesCurto(mes: string): string {
   return `${nomes[indice]}/${ano.slice(2)}`
 }
 
-/** Número da simulação como o consultor lê e fala: "#000123". */
-export function formatarNumeroSimulacao(numero: number | null | undefined): string {
-  return `#${String(numero ?? 0).padStart(6, "0")}`
+/**
+ * O número já vem pronto do banco ("SIM-2026-000001", "CTR-2026-000001").
+ * Esta função existe só para dar um lugar único caso o formato mude.
+ */
+export function formatarNumeroSimulacao(numero: string | null | undefined): string {
+  return numero ?? "—"
 }
 
 export function iniciais(nome: string | null | undefined): string {

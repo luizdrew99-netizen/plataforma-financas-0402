@@ -26,9 +26,9 @@ import {
 import { useCrm } from "@/components/crm/provedor-crm"
 import { atualizarUsuario, listarUsuarios } from "@/lib/crm/queries"
 import { formatarData } from "@/lib/crm/format"
-import type { CrmPapel, CrmUsuario } from "@/lib/crm/types"
+import type { Papel, Perfil } from "@/lib/crm/types"
 
-const PAPEIS: { valor: CrmPapel; rotulo: string; descricao: string }[] = [
+const PAPEIS: { valor: Papel; rotulo: string; descricao: string }[] = [
   { valor: "admin", rotulo: "Administrador", descricao: "Acesso total, edita configurações" },
   { valor: "supervisor", rotulo: "Supervisor", descricao: "Vê tudo, pode excluir registros" },
   { valor: "consultor", rotulo: "Consultor", descricao: "Cria e edita simulações" },
@@ -36,7 +36,7 @@ const PAPEIS: { valor: CrmPapel; rotulo: string; descricao: string }[] = [
 
 export default function PaginaUsuarios() {
   const { usuario: usuarioAtual, ehAdmin } = useCrm()
-  const [usuarios, setUsuarios] = useState<CrmUsuario[]>([])
+  const [usuarios, setUsuarios] = useState<Perfil[]>([])
   const [carregando, setCarregando] = useState(true)
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function PaginaUsuarios() {
     }
   }, [])
 
-  async function alterar(id: string, patch: Partial<CrmUsuario>) {
+  async function alterar(id: string, patch: Partial<Perfil>) {
     const anterior = usuarios
     setUsuarios((atual) => atual.map((u) => (u.id === id ? { ...u, ...patch } : u)))
     try {
@@ -135,7 +135,7 @@ export default function PaginaUsuarios() {
                             value={u.papel}
                             disabled={!ehAdmin || ehVoce}
                             onValueChange={(v) =>
-                              void alterar(u.id, { papel: v as CrmPapel })
+                              void alterar(u.id, { papel: v as Papel })
                             }
                           >
                             <SelectTrigger className="w-full" size="sm">

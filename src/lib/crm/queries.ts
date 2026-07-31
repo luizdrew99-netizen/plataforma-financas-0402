@@ -1,71 +1,79 @@
 /**
- * Acesso a dados do CRM. Tudo passa pelo cliente Supabase do navegador —
- * a RLS da migração é quem decide o que cada papel pode ver e escrever.
+ * Acesso a dados do CRM da ABPAC. Tudo passa pelo cliente Supabase do
+ * navegador — a RLS do projeto é quem decide o que cada papel pode ver e
+ * escrever (`e_admin()`, `e_gestor()`, `meu_papel()`).
  */
 
 import { supabase } from "@/lib/supabase"
 import type {
   Beneficio,
-  Cadastro,
   Categoria,
   Cliente,
   Cobertura,
   Configuracoes,
-  CrmUsuario,
+  Contrato,
   DashboardResumo,
-  PdfGerado,
+  Perfil,
   Simulacao,
   SimulacaoDetalhe,
+  SimulacaoPdf,
   StatusSimulacao,
   Veiculo,
 } from "./types"
 
-const BUCKET = "crm-arquivos"
+const BUCKET_PROPOSTAS = "propostas"
 
 /** Erro do Supabase vira mensagem legível em português para o toast. */
 function falhar(contexto: string, erro: { message?: string } | null): never {
-  const detalhe = erro?.message ?? "erro desconhecido"
-  throw new Error(`${contexto}: ${detalhe}`)
+  throw new Error(`${contexto}: ${erro?.message ?? "erro desconhecido"}`)
 }
 
 // ---------------------------------------------------------------------
-// Sessão e usuário
+// Perfil e usuários
 // ---------------------------------------------------------------------
 
 /**
- * Garante que o usuário logado tenha ficha no CRM. O primeiro a entrar vira
- * admin; os demais entram como consultor (regra está na função do banco).
+ * Perfil do usuário logado. A linha é criada pelo trigger `handle_new_user`
+ * no momento do cadastro, então aqui basta ler.
  */
-export async function garantirUsuarioCrm(): Promise<CrmUsuario> {
-  const { data, error } = await supabase.rpc("crm_garantir_usuario")
-  if (error) falhar("Não foi possível carregar seu acesso ao CRM", error)
-  return data as CrmUsuario
+export async function obterMeuPerfil(): Promise<Perfil> {
+  const { data: sessao } = await supabase.auth.getUser()
+  const uid = sessao?.user?.id
+  if (!uid) throw new Error("Sem sessão autenticada.")
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", uid)
+    .single()
+  if (error) falhar("Não foi possível carregar seu perfil", error)
+  return data as Perfil
 }
 
-export async function listarUsuarios(): Promise<CrmUsuario[]> {
+export async function listarUsuarios(): Promise<Perfil[]> {
   const { data, error } = await supabase
-    .from("crm_usuarios")
+    .from("profiles")
     .select("*")
     .order("created_at")
   if (error) falhar("Não foi possível listar os usuários", error)
-  return (data ?? []) as CrmUsuario[]
+  return (data ?? []) as Perfil[]
 }
 
 export async function atualizarUsuario(
   id: string,
-  patch: Partial<Pick<CrmUsuario, "nome" | "papel" | "ativo">>
+  patch: Partial<Pick<Perfil, "nome" | "papel" | "ativo">>
 ): Promise<void> {
-  const { error } = await supabase.from("crm_usuarios").update(patch).eq("id", id)
+  const { error } = await supabase.from("profiles").update(patch).eq("id", id)
   if (error) falhar("Não foi possível atualizar o usuário", error)
 }
 
 // ---------------------------------------------------------------------
-// Cadastros base (configurações, categorias, coberturas, benefícios)
+// Cadastros base
 // ---------------------------------------------------------------------
 
 export async function obterConfiguracoes(): Promise<Configuracoes> {
   const { data, error } = await supabase
-    .from("crm_configuracoes")
+    .from("configuracoes")
     .select("*")
     .eq("id", true)
     .single()
@@ -77,7 +85,7 @@ export async function salvarConfiguracoes(
   patch: Partial<Configuracoes>
 ): Promise<void> {
   const { error } = await supabase
-    .from("crm_configuracoes")
+    .from("configuracoes")
     .update(patch)
     .eq("id", true)
   if (error) falhar("Não foi possível salvar as configurações", error)
@@ -85,7 +93,7 @@ export async function salvarConfiguracoes(
 
 export async function listarCategorias(): Promise<Categoria[]> {
   const { data, error } = await supabase
-    .from("crm_categorias")
+    .from("categorias")
     .select("*")
     .order("ordem")
   if (error) falhar("Não foi possível carregar as categorias", error)
@@ -97,19 +105,35 @@ export async function salvarCategoria(
 ): Promise<void> {
   const { id, ...campos } = categoria
   const { error } = id
-    ? await supabase.from("crm_categorias").update(campos).eq("id", id)
-    : await supabase.from("crm_categorias").insert(campos)
+    ? await supabase.from("categorias").update(campos).eq("id", id)
+    : await supabase.from("categorias").insert(campos)
   if (error) falhar("Não foi possível salvar a categoria", error)
 }
 
 export async function excluirCategoria(id: string): Promise<void> {
-  const { error } = await supabase.from("crm_categorias").delete().eq("id", id)
+  const { error } = await supabase.from("categorias").delete().eq("id", id)
   if (error) falhar("Não foi possível excluir a categoria", error)
+}
+
+/**
+ * Aponta buracos entre as faixas — se existir um vão, um caminhão avaliado
+ * ali cairia na faixa mais próxima por baixo em vez da correta.
+ */
+export async function verificarLacunasCategorias(): Promise<string[]> {
+  const { data, error } = await supabase.rpc("verificar_lacunas_categorias")
+  if (error) return []
+  if (!data) return []
+  if (Array.isArray(data)) {
+    return data.map((linha) =>
+      typeof linha === "string" ? linha : JSON.stringify(linha)
+    )
+  }
+  return [String(data)]
 }
 
 export async function listarCoberturas(): Promise<Cobertura[]> {
   const { data, error } = await supabase
-    .from("crm_coberturas")
+    .from("coberturas")
     .select("*")
     .order("ordem")
   if (error) falhar("Não foi possível carregar as coberturas", error)
@@ -121,19 +145,19 @@ export async function salvarCobertura(
 ): Promise<void> {
   const { id, ...campos } = cobertura
   const { error } = id
-    ? await supabase.from("crm_coberturas").update(campos).eq("id", id)
-    : await supabase.from("crm_coberturas").insert(campos)
+    ? await supabase.from("coberturas").update(campos).eq("id", id)
+    : await supabase.from("coberturas").insert(campos)
   if (error) falhar("Não foi possível salvar a cobertura", error)
 }
 
 export async function excluirCobertura(id: string): Promise<void> {
-  const { error } = await supabase.from("crm_coberturas").delete().eq("id", id)
+  const { error } = await supabase.from("coberturas").delete().eq("id", id)
   if (error) falhar("Não foi possível excluir a cobertura", error)
 }
 
 export async function listarBeneficios(): Promise<Beneficio[]> {
   const { data, error } = await supabase
-    .from("crm_beneficios")
+    .from("beneficios")
     .select("*")
     .order("ordem")
   if (error) falhar("Não foi possível carregar os benefícios", error)
@@ -145,19 +169,33 @@ export async function salvarBeneficio(
 ): Promise<void> {
   const { id, ...campos } = beneficio
   const { error } = id
-    ? await supabase.from("crm_beneficios").update(campos).eq("id", id)
-    : await supabase.from("crm_beneficios").insert(campos)
+    ? await supabase.from("beneficios").update(campos).eq("id", id)
+    : await supabase.from("beneficios").insert(campos)
   if (error) falhar("Não foi possível salvar o benefício", error)
 }
 
 // ---------------------------------------------------------------------
-// Dashboard
+// Dashboard e busca
 // ---------------------------------------------------------------------
 
 export async function obterResumoDashboard(): Promise<DashboardResumo> {
-  const { data, error } = await supabase.rpc("crm_dashboard_resumo")
+  const { data, error } = await supabase.rpc("dashboard_resumo")
   if (error) falhar("Não foi possível carregar o dashboard", error)
   return data as DashboardResumo
+}
+
+export interface ResultadoBusca {
+  tipo: "cliente" | "veiculo"
+  id: string
+  titulo: string
+  subtitulo: string | null
+  referencia: string | null
+}
+
+export async function buscaGlobal(termo: string): Promise<ResultadoBusca[]> {
+  const { data, error } = await supabase.rpc("busca_global", { p_termo: termo })
+  if (error) return []
+  return (data ?? []) as ResultadoBusca[]
 }
 
 // ---------------------------------------------------------------------
@@ -167,6 +205,7 @@ export async function obterResumoDashboard(): Promise<DashboardResumo> {
 export interface FiltroSimulacoes {
   busca?: string
   status?: StatusSimulacao | "todas"
+  clienteId?: string
   limite?: number
 }
 
@@ -174,7 +213,7 @@ export async function listarSimulacoes(
   filtro: FiltroSimulacoes = {}
 ): Promise<SimulacaoDetalhe[]> {
   let consulta = supabase
-    .from("crm_simulacoes_detalhe")
+    .from("simulacoes_detalhe")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(filtro.limite ?? 200)
@@ -182,14 +221,19 @@ export async function listarSimulacoes(
   if (filtro.status && filtro.status !== "todas") {
     consulta = consulta.eq("status", filtro.status)
   }
+  if (filtro.clienteId) {
+    consulta = consulta.eq("cliente_id", filtro.clienteId)
+  }
 
   const termo = filtro.busca?.trim()
   if (termo) {
     const escapado = termo.replace(/[%,()]/g, " ")
+    const placa = escapado.replace(/[^A-Za-z0-9]/g, "")
     consulta = consulta.or(
       [
         `cliente_nome.ilike.%${escapado}%`,
-        `veiculo_placa.ilike.%${escapado.replace(/[^A-Za-z0-9]/g, "")}%`,
+        `numero.ilike.%${escapado}%`,
+        `veiculo_placa.ilike.%${placa}%`,
         `veiculo_modelo.ilike.%${escapado}%`,
         `veiculo_marca.ilike.%${escapado}%`,
         `cliente_telefone.ilike.%${escapado}%`,
@@ -204,7 +248,7 @@ export async function listarSimulacoes(
 
 export async function obterSimulacao(id: string): Promise<SimulacaoDetalhe> {
   const { data, error } = await supabase
-    .from("crm_simulacoes_detalhe")
+    .from("simulacoes_detalhe")
     .select("*")
     .eq("id", id)
     .single()
@@ -212,15 +256,15 @@ export async function obterSimulacao(id: string): Promise<SimulacaoDetalhe> {
   return data as SimulacaoDetalhe
 }
 
-/** Simulação + cliente e veículo completos, para preencher a tela de edição. */
+/** Simulação + cliente e veículo completos, para a tela de edição e o PDF. */
 export async function obterSimulacaoCompleta(id: string): Promise<{
   simulacao: Simulacao
   cliente: Cliente
   veiculo: Veiculo
 }> {
   const { data, error } = await supabase
-    .from("crm_simulacoes")
-    .select("*, cliente:crm_clientes(*), veiculo:crm_veiculos(*)")
+    .from("simulacoes")
+    .select("*, cliente:clientes(*), veiculo:veiculos(*)")
     .eq("id", id)
     .single()
   if (error) falhar("Não foi possível carregar a simulação", error)
@@ -240,7 +284,7 @@ export interface PayloadSimulacao {
     whatsapp?: string | null
     email?: string | null
     cidade?: string | null
-    estado?: string | null
+    uf?: string | null
     observacoes?: string | null
   }
   veiculo: {
@@ -250,28 +294,30 @@ export interface PayloadSimulacao {
     modelo?: string | null
     ano_modelo?: number | string | null
     ano_fabricacao?: number | string | null
-    valor_mercado: number
     restricoes?: string[]
     restricoes_descricao?: string | null
     observacoes?: string | null
   }
   valor_mercado: number
   valor_rateio: number
-  valor_protecao_terceiros: number
+  valor_terceiros: number
   valor_assistencia: number
   valor_beneficios_extras: number
   taxa_adesao: number
-  coberturas_snapshot: unknown[]
-  beneficios_snapshot: unknown[]
+  coberturas: { nome: string; descricao?: string | null }[]
+  beneficios: { codigo: string; nome: string; descricao: string; valor: number }[]
   observacoes?: string | null
   status?: StatusSimulacao
 }
 
-/** Cria ou atualiza cliente + veículo + simulação em uma transação só. */
+/**
+ * Cria ou atualiza cliente + veículo + simulação em uma transação só.
+ * O snapshot da proposta é montado dentro do banco.
+ */
 export async function salvarSimulacao(
   payload: PayloadSimulacao
 ): Promise<string> {
-  const { data, error } = await supabase.rpc("crm_salvar_simulacao", {
+  const { data, error } = await supabase.rpc("salvar_simulacao", {
     p_payload: payload,
   })
   if (error) falhar("Não foi possível salvar a simulação", error)
@@ -283,32 +329,42 @@ export async function atualizarStatusSimulacao(
   status: StatusSimulacao
 ): Promise<void> {
   const { error } = await supabase
-    .from("crm_simulacoes")
+    .from("simulacoes")
     .update({ status })
     .eq("id", id)
   if (error) falhar("Não foi possível atualizar o status", error)
 }
 
 export async function duplicarSimulacao(id: string): Promise<string> {
-  const { data, error } = await supabase.rpc("crm_duplicar_simulacao", {
-    p_id: id,
-  })
+  const { data, error } = await supabase.rpc("duplicar_simulacao", { p_id: id })
   if (error) falhar("Não foi possível duplicar a simulação", error)
   return data as string
 }
 
 export async function excluirSimulacao(id: string): Promise<void> {
-  const { error } = await supabase.from("crm_simulacoes").delete().eq("id", id)
+  const { error } = await supabase.from("simulacoes").delete().eq("id", id)
   if (error) falhar("Não foi possível excluir a simulação", error)
 }
 
-/** Confirma a simulação e devolve o cadastro definitivo criado no mesmo passo. */
-export async function confirmarSimulacao(id: string): Promise<Cadastro> {
-  const { data, error } = await supabase.rpc("crm_confirmar_simulacao", {
+/** Confirma a simulação e devolve o contrato criado no mesmo passo. */
+export async function confirmarSimulacao(id: string): Promise<Contrato> {
+  const { data, error } = await supabase.rpc("confirmar_simulacao", {
     p_simulacao_id: id,
   })
   if (error) falhar("Não foi possível confirmar a simulação", error)
-  return data as Cadastro
+  return data as Contrato
+}
+
+/** Corta o acesso ao link público sem apagar a proposta. */
+export async function revogarLinkPublico(
+  id: string,
+  revogado: boolean
+): Promise<void> {
+  const { error } = await supabase
+    .from("simulacoes")
+    .update({ token_revogado: revogado })
+    .eq("id", id)
+  if (error) falhar("Não foi possível alterar o link público", error)
 }
 
 // ---------------------------------------------------------------------
@@ -317,7 +373,7 @@ export async function confirmarSimulacao(id: string): Promise<Cadastro> {
 
 export async function listarClientes(busca?: string): Promise<Cliente[]> {
   let consulta = supabase
-    .from("crm_clientes")
+    .from("clientes")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(200)
@@ -344,7 +400,7 @@ export async function listarClientes(busca?: string): Promise<Cliente[]> {
 
 export async function obterCliente(id: string): Promise<Cliente> {
   const { data, error } = await supabase
-    .from("crm_clientes")
+    .from("clientes")
     .select("*")
     .eq("id", id)
     .single()
@@ -352,42 +408,26 @@ export async function obterCliente(id: string): Promise<Cliente> {
   return data as Cliente
 }
 
-export async function salvarCliente(
-  cliente: Partial<Cliente> & { id?: string }
-): Promise<string> {
-  const { id, created_at, updated_at, ...campos } = cliente as Record<
-    string,
-    unknown
-  > & { id?: string }
+export async function salvarCliente(cliente: Cliente): Promise<string> {
+  // Campos gerenciados pelo banco não vão no update.
+  const { id, created_at, updated_at, criado_por, ...campos } = cliente
   void created_at
   void updated_at
+  void criado_por
 
-  if (id) {
-    const { error } = await supabase.from("crm_clientes").update(campos).eq("id", id)
-    if (error) falhar("Não foi possível salvar o cliente", error)
-    return id
-  }
-
-  const { data, error } = await supabase
-    .from("crm_clientes")
-    .insert(campos)
-    .select("id")
-    .single()
-  if (error) falhar("Não foi possível criar o cliente", error)
-  return (data as { id: string }).id
+  const { error } = await supabase.from("clientes").update(campos).eq("id", id)
+  if (error) falhar("Não foi possível salvar o cliente", error)
+  return id
 }
 
 export interface VeiculoComCliente extends Veiculo {
   cliente: Pick<Cliente, "id" | "nome" | "telefone"> | null
-  categoria: Pick<Categoria, "codigo" | "nome"> | null
 }
 
 export async function listarVeiculos(busca?: string): Promise<VeiculoComCliente[]> {
   let consulta = supabase
-    .from("crm_veiculos")
-    .select(
-      "*, cliente:crm_clientes(id, nome, telefone), categoria:crm_categorias(codigo, nome)"
-    )
+    .from("veiculos")
+    .select("*, cliente:clientes(id, nome, telefone)")
     .order("created_at", { ascending: false })
     .limit(200)
 
@@ -410,13 +450,21 @@ export async function listarVeiculos(busca?: string): Promise<VeiculoComCliente[
   return (data ?? []) as VeiculoComCliente[]
 }
 
+export async function salvarVeiculo(
+  id: string,
+  patch: Partial<Veiculo>
+): Promise<void> {
+  const { error } = await supabase.from("veiculos").update(patch).eq("id", id)
+  if (error) falhar("Não foi possível salvar o veículo", error)
+}
+
 // ---------------------------------------------------------------------
 // PDFs
 // ---------------------------------------------------------------------
 
-export interface PdfComSimulacao extends PdfGerado {
+export interface PdfComSimulacao extends SimulacaoPdf {
   simulacao: {
-    numero: number
+    numero: string
     status: StatusSimulacao
     cliente: { nome: string } | null
     veiculo: { placa: string } | null
@@ -425,9 +473,9 @@ export interface PdfComSimulacao extends PdfGerado {
 
 export async function listarPdfs(simulacaoId?: string): Promise<PdfComSimulacao[]> {
   let consulta = supabase
-    .from("crm_pdfs")
+    .from("simulacao_pdfs")
     .select(
-      "*, simulacao:crm_simulacoes(numero, status, cliente:crm_clientes(nome), veiculo:crm_veiculos(placa))"
+      "*, simulacao:simulacoes(numero, status, cliente:clientes(nome), veiculo:veiculos(placa))"
     )
     .order("created_at", { ascending: false })
     .limit(200)
@@ -440,33 +488,46 @@ export async function listarPdfs(simulacaoId?: string): Promise<PdfComSimulacao[
 }
 
 /**
- * Guarda o PDF no bucket privado e registra a versão. Se o upload falhar, a
- * simulação continua válida — o consultor só perde o arquivo arquivado, e o
- * download local já aconteceu antes desta chamada.
+ * Guarda o PDF no bucket `propostas` e registra a versão. Se falhar, a
+ * simulação continua válida — o consultor já baixou o arquivo antes desta
+ * chamada, então só se perde a cópia arquivada.
  */
 export async function arquivarPdf(
   simulacaoId: string,
-  numero: number,
+  numero: string,
   arquivo: Blob
-): Promise<PdfGerado | null> {
-  const caminho = `propostas/${simulacaoId}/${Date.now()}-proposta-${numero}.pdf`
+): Promise<SimulacaoPdf | null> {
+  const { data: sessao } = await supabase.auth.getUser()
+  const usuarioId = sessao?.user?.id
+  if (!usuarioId) return null
+
+  // A versão é sequencial por simulação; lê a última para somar 1.
+  const { data: ultima } = await supabase
+    .from("simulacao_pdfs")
+    .select("versao")
+    .eq("simulacao_id", simulacaoId)
+    .order("versao", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const versao = ((ultima as { versao: number } | null)?.versao ?? 0) + 1
+  const caminho = `${simulacaoId}/${numero}-v${versao}-${Date.now()}.pdf`
 
   const { error: erroUpload } = await supabase.storage
-    .from(BUCKET)
+    .from(BUCKET_PROPOSTAS)
     .upload(caminho, arquivo, { contentType: "application/pdf", upsert: false })
   if (erroUpload) {
     console.error("Falha ao arquivar o PDF no storage:", erroUpload.message)
     return null
   }
 
-  const { data: sessao } = await supabase.auth.getUser()
   const { data, error } = await supabase
-    .from("crm_pdfs")
+    .from("simulacao_pdfs")
     .insert({
       simulacao_id: simulacaoId,
-      arquivo_path: caminho,
-      tamanho_bytes: arquivo.size,
-      gerado_por: sessao?.user?.id ?? null,
+      versao,
+      storage_path: caminho,
+      gerado_por: usuarioId,
     })
     .select("*")
     .single()
@@ -475,41 +536,42 @@ export async function arquivarPdf(
     console.error("Falha ao registrar o PDF:", error.message)
     return null
   }
-  return data as PdfGerado
+  return data as SimulacaoPdf
 }
 
-/** Link temporário (1 h) para baixar um PDF já arquivado. */
+/** Link temporário (1 h) para abrir um PDF já arquivado. */
 export async function urlAssinadaPdf(caminho: string): Promise<string> {
   const { data, error } = await supabase.storage
-    .from(BUCKET)
+    .from(BUCKET_PROPOSTAS)
     .createSignedUrl(caminho, 60 * 60)
   if (error) falhar("Não foi possível gerar o link do PDF", error)
   return (data as { signedUrl: string }).signedUrl
 }
 
 // ---------------------------------------------------------------------
-// Cadastros definitivos
+// Contratos
 // ---------------------------------------------------------------------
 
-export interface CadastroComRelacoes extends Cadastro {
+export interface ContratoComRelacoes extends Contrato {
   cliente: Cliente | null
   veiculo: Veiculo | null
+  simulacao: { numero: string } | null
 }
 
-export async function listarCadastros(): Promise<CadastroComRelacoes[]> {
+export async function listarContratos(): Promise<ContratoComRelacoes[]> {
   const { data, error } = await supabase
-    .from("crm_cadastros")
-    .select("*, cliente:crm_clientes(*), veiculo:crm_veiculos(*)")
+    .from("contratos")
+    .select("*, cliente:clientes(*), veiculo:veiculos(*), simulacao:simulacoes(numero)")
     .order("created_at", { ascending: false })
     .limit(200)
-  if (error) falhar("Não foi possível listar os cadastros", error)
-  return (data ?? []) as CadastroComRelacoes[]
+  if (error) falhar("Não foi possível listar os contratos", error)
+  return (data ?? []) as ContratoComRelacoes[]
 }
 
-export async function atualizarCadastro(
+export async function atualizarContrato(
   id: string,
-  patch: Partial<Cadastro>
+  patch: Partial<Contrato>
 ): Promise<void> {
-  const { error } = await supabase.from("crm_cadastros").update(patch).eq("id", id)
-  if (error) falhar("Não foi possível atualizar o cadastro", error)
+  const { error } = await supabase.from("contratos").update(patch).eq("id", id)
+  if (error) falhar("Não foi possível atualizar o contrato", error)
 }

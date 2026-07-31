@@ -23,20 +23,20 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import {
-  atualizarCadastro,
-  listarCadastros,
-  type CadastroComRelacoes,
+  atualizarContrato,
+  listarContratos,
+  type ContratoComRelacoes,
 } from "@/lib/crm/queries"
 import { formatarData, formatarMoeda, formatarPlaca } from "@/lib/crm/format"
-import { SITUACAO_CADASTRO, type SituacaoCadastro } from "@/lib/crm/types"
+import { SITUACAO_CONTRATO, type SituacaoContrato } from "@/lib/crm/types"
 
-export default function PaginaCadastros() {
-  const [cadastros, setCadastros] = useState<CadastroComRelacoes[]>([])
+export default function PaginaContratos() {
+  const [contratos, setContratos] = useState<ContratoComRelacoes[]>([])
   const [carregando, setCarregando] = useState(true)
 
   const carregar = useCallback(async () => {
     try {
-      setCadastros(await listarCadastros())
+      setContratos(await listarContratos())
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao carregar.")
     } finally {
@@ -48,17 +48,17 @@ export default function PaginaCadastros() {
     void carregar()
   }, [carregar])
 
-  async function mudarSituacao(id: string, situacao: SituacaoCadastro) {
+  async function mudarSituacao(id: string, situacao: SituacaoContrato) {
     // Atualiza a tela na hora e desfaz se o banco recusar.
-    const anterior = cadastros
-    setCadastros((atual) =>
+    const anterior = contratos
+    setContratos((atual) =>
       atual.map((c) => (c.id === id ? { ...c, situacao } : c))
     )
     try {
-      await atualizarCadastro(id, { situacao })
+      await atualizarContrato(id, { situacao })
       toast.success("Situação atualizada.")
     } catch (e) {
-      setCadastros(anterior)
+      setContratos(anterior)
       toast.error(e instanceof Error ? e.message : "Falha ao atualizar.")
     }
   }
@@ -78,11 +78,11 @@ export default function PaginaCadastros() {
   return (
     <Card>
       <CardContent className="px-0">
-        {cadastros.length === 0 ? (
+        {contratos.length === 0 ? (
           <div className="flex flex-col items-center gap-3 py-14 text-center">
             <ShieldCheck className="text-muted-foreground size-8" />
             <div>
-              <p className="font-medium">Nenhum cadastro definitivo</p>
+              <p className="font-medium">Nenhum contrato</p>
               <p className="text-muted-foreground text-sm">
                 Confirme uma simulação para gerar o primeiro contrato.
               </p>
@@ -103,10 +103,10 @@ export default function PaginaCadastros() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {cadastros.map((c) => (
+                {contratos.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-mono text-xs">
-                      #{String(c.numero).padStart(6, "0")}
+                      {c.numero}
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate font-medium">
                       {c.cliente ? (
@@ -138,7 +138,7 @@ export default function PaginaCadastros() {
                       <Select
                         value={c.situacao}
                         onValueChange={(v) =>
-                          void mudarSituacao(c.id, v as SituacaoCadastro)
+                          void mudarSituacao(c.id, v as SituacaoContrato)
                         }
                       >
                         <SelectTrigger className="w-full" size="sm">
@@ -146,10 +146,10 @@ export default function PaginaCadastros() {
                         </SelectTrigger>
                         <SelectContent>
                           {(
-                            Object.keys(SITUACAO_CADASTRO) as SituacaoCadastro[]
+                            Object.keys(SITUACAO_CONTRATO) as SituacaoContrato[]
                           ).map((s) => (
                             <SelectItem key={s} value={s}>
-                              {SITUACAO_CADASTRO[s].rotulo}
+                              {SITUACAO_CONTRATO[s].rotulo}
                             </SelectItem>
                           ))}
                         </SelectContent>

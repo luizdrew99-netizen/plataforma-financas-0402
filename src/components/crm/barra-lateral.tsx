@@ -54,7 +54,7 @@ const ITENS_PRINCIPAIS = [
 const ITENS_CARTEIRA = [
   { titulo: "Clientes", url: "/crm/clientes", icone: Users },
   { titulo: "Veículos", url: "/crm/veiculos", icone: Truck },
-  { titulo: "Cadastros", url: "/crm/cadastros", icone: ShieldCheck },
+  { titulo: "Contratos", url: "/crm/contratos", icone: ShieldCheck },
 ] as const
 
 const ITENS_APOIO = [
@@ -97,7 +97,7 @@ export function BarraLateralCrm() {
           </div>
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold leading-tight">
-              {configuracoes?.nome_empresa ?? "Proteção Veicular"}
+              {configuracoes?.nome_associacao ?? "Proteção Veicular"}
             </p>
             <p className="text-muted-foreground truncate text-[11px] leading-tight">
               CRM de simulações
