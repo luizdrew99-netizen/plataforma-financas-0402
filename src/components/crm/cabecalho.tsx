@@ -20,6 +20,8 @@ const TITULOS: { prefixo: string; titulo: string; exato?: boolean }[] = [
   { prefixo: "/crm/veiculos", titulo: "Veículos" },
   { prefixo: "/crm/contratos", titulo: "Contratos" },
   { prefixo: "/crm/pdfs", titulo: "PDFs Gerados" },
+  { prefixo: "/crm/documentos", titulo: "Documentos" },
+  { prefixo: "/crm/auditoria", titulo: "Auditoria" },
   { prefixo: "/crm/relatorios", titulo: "Relatórios" },
   { prefixo: "/crm/configuracoes", titulo: "Configurações" },
   { prefixo: "/crm/usuarios", titulo: "Usuários" },

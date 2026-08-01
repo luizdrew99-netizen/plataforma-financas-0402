@@ -16,6 +16,8 @@ import {
   UsersRound,
   BarChart3,
   ShieldCheck,
+  Paperclip,
+  History,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 
@@ -59,12 +61,14 @@ const ITENS_CARTEIRA = [
 
 const ITENS_APOIO = [
   { titulo: "PDFs Gerados", url: "/crm/pdfs", icone: Files },
+  { titulo: "Documentos", url: "/crm/documentos", icone: Paperclip },
   { titulo: "Relatórios", url: "/crm/relatorios", icone: BarChart3 },
 ] as const
 
 const ITENS_ADMIN = [
   { titulo: "Configurações", url: "/crm/configuracoes", icone: Settings },
   { titulo: "Usuários", url: "/crm/usuarios", icone: UsersRound },
+  { titulo: "Auditoria", url: "/crm/auditoria", icone: History },
 ] as const
 
 export function BarraLateralCrm() {

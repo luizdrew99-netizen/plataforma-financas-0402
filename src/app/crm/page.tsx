@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import {
+  AlertTriangle,
   ArrowRight,
+  CalendarClock,
   CheckCircle2,
   FilePlus2,
   FileText,
@@ -39,7 +41,12 @@ import {
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { EtiquetaCategoria, EtiquetaStatus } from "@/components/crm/etiquetas"
-import { listarSimulacoes, obterResumoDashboard } from "@/lib/crm/queries"
+import {
+  listarContratos,
+  listarSimulacoes,
+  obterResumoDashboard,
+} from "@/lib/crm/queries"
+import { calcularVencimento } from "@/lib/crm/vencimentos"
 import {
   formatarData,
   formatarMesCurto,
@@ -104,6 +111,7 @@ function Indicador({
 export default function PaginaDashboard() {
   const [resumo, setResumo] = useState<DashboardResumo | null>(null)
   const [ultimas, setUltimas] = useState<SimulacaoDetalhe[]>([])
+  const [vencimentos, setVencimentos] = useState({ vencidos: 0, proximos: 0 })
   const [carregando, setCarregando] = useState(true)
   const [erro, setErro] = useState<string | null>(null)
 
@@ -111,13 +119,22 @@ export default function PaginaDashboard() {
     let ativo = true
     ;(async () => {
       try {
-        const [dados, simulacoes] = await Promise.all([
+        const [dados, simulacoes, contratos] = await Promise.all([
           obterResumoDashboard(),
           listarSimulacoes({ limite: 8 }),
+          listarContratos(),
         ])
         if (!ativo) return
         setResumo(dados)
         setUltimas(simulacoes)
+
+        // O vencimento não é coluna do banco: sai de data_vencimento ou do
+        // dia do mês, então é calculado aqui a partir dos contratos.
+        const estados = contratos.map((c) => calcularVencimento(c).estado)
+        setVencimentos({
+          vencidos: estados.filter((e) => e === "vencido").length,
+          proximos: estados.filter((e) => e === "vence_em_breve").length,
+        })
       } catch (e) {
         if (ativo) setErro(e instanceof Error ? e.message : "Falha ao carregar.")
       } finally {
@@ -159,6 +176,46 @@ export default function PaginaDashboard() {
 
   return (
     <div className="space-y-6">
+      {(vencimentos.vencidos > 0 || vencimentos.proximos > 0) && (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {vencimentos.vencidos > 0 && (
+            <Link
+              href="/crm/contratos"
+              className="flex items-center gap-3 rounded-lg border border-red-300 bg-red-50 p-3 transition-colors hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:hover:bg-red-950/60"
+            >
+              <AlertTriangle className="size-5 shrink-0 text-red-600 dark:text-red-400" />
+              <div>
+                <p className="font-medium text-red-900 dark:text-red-200">
+                  {vencimentos.vencidos}{" "}
+                  {vencimentos.vencidos === 1
+                    ? "contrato vencido"
+                    : "contratos vencidos"}
+                </p>
+                <p className="text-xs text-red-700 dark:text-red-300">
+                  Ver em Contratos
+                </p>
+              </div>
+            </Link>
+          )}
+          {vencimentos.proximos > 0 && (
+            <Link
+              href="/crm/contratos"
+              className="flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 transition-colors hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:hover:bg-amber-950/60"
+            >
+              <CalendarClock className="size-5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <div>
+                <p className="font-medium text-amber-900 dark:text-amber-200">
+                  {vencimentos.proximos} vencendo em até 7 dias
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  Ver em Contratos
+                </p>
+              </div>
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Indicador
           titulo="Simulações"

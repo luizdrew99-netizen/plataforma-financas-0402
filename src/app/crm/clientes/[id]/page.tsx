@@ -32,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { EtiquetaCategoria, EtiquetaStatus } from "@/components/crm/etiquetas"
+import { GestorDocumentos } from "@/components/crm/gestor-documentos"
 import { listarSimulacoes, obterCliente, salvarCliente } from "@/lib/crm/queries"
 import {
   formatarData,
@@ -392,6 +393,8 @@ export default function PaginaClienteDetalhe() {
           />
         </CardContent>
       </Card>
+
+      <GestorDocumentos clienteId={cliente.id} />
 
       <Card>
         <CardHeader>

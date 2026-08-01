@@ -168,13 +168,41 @@ contra o Supabase (login, navegação, download do PDF pelo botão) e o
 carregamento da logo dentro do PDF. Vale um teste manual rápido no primeiro
 acesso.
 
+## Documentos, auditoria e vencimentos
+
+**Documentos** ficam no bucket `documentos` e são anexados dentro do cadastro
+do cliente (`GestorDocumentos`), com tipo (CRLV, CNH, contrato social,
+comprovante, foto, laudo) e limite de 15 MB. Se o registro no banco falhar
+depois do upload, o arquivo é removido do bucket — senão sobraria lixo sem
+nada apontando para ele. A tela `/crm/documentos` lista tudo para consulta.
+
+**Auditoria** (`/crm/auditoria`, só admin) lê a tabela `auditoria`, que já era
+alimentada pelo trigger `registrar_auditoria`. A tela compara `dados_antes` e
+`dados_depois` e mostra **apenas os campos que mudaram**, ignorando
+`created_at`/`updated_at`.
+
+**Vencimentos** não são coluna do banco: saem de `data_vencimento` (data
+específica) ou, na falta dela, de `dia_vencimento` (dia do mês), pela regra em
+`src/lib/crm/vencimentos.ts`. Detalhes que a regra trata: dia 31 em mês curto
+cai no último dia do mês; contrato cancelado ou suspenso não entra em
+cobrança; e a data vinda do banco é montada por partes, porque
+`new Date("2026-08-10")` seria lido como UTC e poderia voltar um dia. Os
+alertas aparecem no dashboard e na tela de contratos, com filtros por
+vencidos / vencendo em 7 dias.
+
+## Uma característica do modelo que vale saber
+
+A RLS do sistema é **por dono**: `consultor` enxerga apenas os registros que
+ele criou; `supervisor` e `admin` (`e_gestor()`) enxergam tudo. Isso vale para
+clientes, veículos, simulações, PDFs e documentos. Na prática, o dashboard e a
+busca de um consultor mostram só a carteira dele. Foi uma decisão do sistema
+anterior e foi mantida.
+
 ## Backlog
 
-- Upload de documentos (CRLV, CNH, contrato social, fotos) — a tabela
-  `documentos` e o bucket já existem, falta a tela.
-- Lembretes de vencimento de adesão e renovação.
 - Relatórios por cliente/veículo e exportação em PDF (hoje só CSV, por período).
-- Tela de consulta da auditoria.
+- Notificação ativa dos vencimentos (hoje o alerta é passivo, aparece ao abrir
+  o sistema) — precisaria de e-mail/WhatsApp e de um agendador.
 - Integrações: FIPE, leitura automática de placa, assinatura eletrônica,
   gateway de pagamento, envio automático de WhatsApp/SMS.
 - Versionar no repositório as duas migrações do schema base

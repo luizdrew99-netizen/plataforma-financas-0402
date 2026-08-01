@@ -549,6 +549,175 @@ export async function urlAssinadaPdf(caminho: string): Promise<string> {
 }
 
 // ---------------------------------------------------------------------
+// Documentos (CRLV, CNH, contrato social, fotos…)
+// ---------------------------------------------------------------------
+
+export const TIPOS_DOCUMENTO = [
+  { valor: "crlv", rotulo: "CRLV" },
+  { valor: "cnh", rotulo: "CNH" },
+  { valor: "contrato_social", rotulo: "Contrato social" },
+  { valor: "comprovante_residencia", rotulo: "Comprovante de residência" },
+  { valor: "foto_veiculo", rotulo: "Foto do veículo" },
+  { valor: "vistoria", rotulo: "Laudo de vistoria" },
+  { valor: "outro", rotulo: "Outro" },
+] as const
+
+export interface Documento {
+  id: string
+  cliente_id: string | null
+  veiculo_id: string | null
+  tipo: string
+  nome_arquivo: string
+  storage_path: string
+  enviado_por: string
+  created_at: string
+}
+
+export interface DocumentoComRelacoes extends Documento {
+  cliente: { id: string; nome: string } | null
+  veiculo: { id: string; placa: string } | null
+}
+
+export async function listarDocumentos(filtro?: {
+  clienteId?: string
+  veiculoId?: string
+}): Promise<DocumentoComRelacoes[]> {
+  let consulta = supabase
+    .from("documentos")
+    .select("*, cliente:clientes(id, nome), veiculo:veiculos(id, placa)")
+    .order("created_at", { ascending: false })
+    .limit(200)
+
+  if (filtro?.clienteId) consulta = consulta.eq("cliente_id", filtro.clienteId)
+  if (filtro?.veiculoId) consulta = consulta.eq("veiculo_id", filtro.veiculoId)
+
+  const { data, error } = await consulta
+  if (error) falhar("Não foi possível listar os documentos", error)
+  return (data ?? []) as DocumentoComRelacoes[]
+}
+
+/** Limite generoso, mas que evita estourar o storage sem querer. */
+export const TAMANHO_MAXIMO_DOCUMENTO = 15 * 1024 * 1024
+
+/**
+ * Sobe o arquivo para o bucket `documentos` e registra a linha.
+ * Se o registro falhar depois do upload, o arquivo é removido — senão
+ * ficaria lixo no bucket sem nada apontando para ele.
+ */
+export async function enviarDocumento(
+  arquivo: File,
+  destino: { clienteId?: string | null; veiculoId?: string | null; tipo: string }
+): Promise<Documento> {
+  if (arquivo.size > TAMANHO_MAXIMO_DOCUMENTO) {
+    throw new Error(
+      `O arquivo tem ${Math.round(arquivo.size / 1024 / 1024)} MB. O limite é 15 MB.`
+    )
+  }
+  if (!destino.clienteId && !destino.veiculoId) {
+    throw new Error("O documento precisa estar ligado a um cliente ou a um veículo.")
+  }
+
+  const { data: sessao } = await supabase.auth.getUser()
+  const usuarioId = sessao?.user?.id
+  if (!usuarioId) throw new Error("Sem sessão autenticada.")
+
+  const pasta = destino.clienteId
+    ? `clientes/${destino.clienteId}`
+    : `veiculos/${destino.veiculoId}`
+  // Nome seguro para o storage, preservando a extensão.
+  const extensao = arquivo.name.includes(".")
+    ? arquivo.name.slice(arquivo.name.lastIndexOf("."))
+    : ""
+  const caminho = `${pasta}/${Date.now()}-${destino.tipo}${extensao}`
+
+  const { error: erroUpload } = await supabase.storage
+    .from("documentos")
+    .upload(caminho, arquivo, {
+      contentType: arquivo.type || "application/octet-stream",
+      upsert: false,
+    })
+  if (erroUpload) falhar("Não foi possível enviar o arquivo", erroUpload)
+
+  const { data, error } = await supabase
+    .from("documentos")
+    .insert({
+      cliente_id: destino.clienteId ?? null,
+      veiculo_id: destino.veiculoId ?? null,
+      tipo: destino.tipo,
+      nome_arquivo: arquivo.name,
+      storage_path: caminho,
+      enviado_por: usuarioId,
+    })
+    .select("*")
+    .single()
+
+  if (error) {
+    // Não deixa arquivo órfão no bucket.
+    await supabase.storage.from("documentos").remove([caminho])
+    falhar("O arquivo subiu, mas não foi possível registrá-lo", error)
+  }
+  return data as Documento
+}
+
+export async function excluirDocumento(
+  id: string,
+  storagePath: string
+): Promise<void> {
+  const { error } = await supabase.from("documentos").delete().eq("id", id)
+  if (error) falhar("Não foi possível excluir o documento", error)
+  // Se o arquivo não sair, sobra lixo no bucket — mas o registro já foi.
+  await supabase.storage.from("documentos").remove([storagePath])
+}
+
+/** Link temporário (1 h) para abrir um documento. */
+export async function urlAssinadaDocumento(caminho: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from("documentos")
+    .createSignedUrl(caminho, 60 * 60)
+  if (error) falhar("Não foi possível gerar o link do documento", error)
+  return (data as { signedUrl: string }).signedUrl
+}
+
+// ---------------------------------------------------------------------
+// Auditoria
+// ---------------------------------------------------------------------
+
+export interface LinhaAuditoria {
+  id: number
+  tabela: string
+  registro_id: string | null
+  acao: string
+  usuario_id: string | null
+  dados_antes: Record<string, unknown> | null
+  dados_depois: Record<string, unknown> | null
+  created_at: string
+  usuario: { nome: string; email: string } | null
+}
+
+export async function listarAuditoria(filtro?: {
+  tabela?: string
+  acao?: string
+  limite?: number
+}): Promise<LinhaAuditoria[]> {
+  let consulta = supabase
+    .from("auditoria")
+    .select("*, usuario:profiles(nome, email)")
+    .order("created_at", { ascending: false })
+    .limit(filtro?.limite ?? 200)
+
+  if (filtro?.tabela && filtro.tabela !== "todas") {
+    consulta = consulta.eq("tabela", filtro.tabela)
+  }
+  if (filtro?.acao && filtro.acao !== "todas") {
+    consulta = consulta.eq("acao", filtro.acao)
+  }
+
+  const { data, error } = await consulta
+  if (error) falhar("Não foi possível carregar a auditoria", error)
+  return (data ?? []) as LinhaAuditoria[]
+}
+
+// ---------------------------------------------------------------------
 // Contratos
 // ---------------------------------------------------------------------
 
