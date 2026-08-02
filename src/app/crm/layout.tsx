@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 
-import { supabase } from "@/lib/supabase"
+import { configuracaoSupabaseAusente, supabase } from "@/lib/supabase"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Toaster } from "@/components/ui/sonner"
 import { BarraLateralCrm } from "@/components/crm/barra-lateral"
@@ -100,7 +100,33 @@ function ConteudoCrm({ children }: { children: React.ReactNode }) {
   )
 }
 
+/** Sem as chaves do Supabase nada funciona — melhor dizer isso do que
+ *  deixar o usuário encarando um erro de login que não explica nada. */
+function AvisoConfiguracaoAusente() {
+  return (
+    <div className="flex min-h-svh items-center justify-center p-6">
+      <Alert className="max-w-lg">
+        <AlertTitle>Falta configurar o acesso ao banco</AlertTitle>
+        <AlertDescription className="space-y-2">
+          <p>
+            As variáveis <code>NEXT_PUBLIC_SUPABASE_URL</code> e{" "}
+            <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code> não foram definidas neste
+            ambiente.
+          </p>
+          <p className="text-xs">
+            Na Vercel, configure as duas em Settings → Environment Variables,
+            marcando também o ambiente de <strong>Preview</strong>, e refaça o
+            deploy.
+          </p>
+        </AlertDescription>
+      </Alert>
+    </div>
+  )
+}
+
 export default function LayoutCrm({ children }: { children: React.ReactNode }) {
+  if (configuracaoSupabaseAusente) return <AvisoConfiguracaoAusente />
+
   return (
     <GuardaSessao>
       <ProvedorCrm>
