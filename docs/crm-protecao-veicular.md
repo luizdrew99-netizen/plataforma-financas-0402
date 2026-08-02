@@ -1,9 +1,14 @@
 # CRM de Proteção Veicular — ABPAC
 
 CRM para simulação, proposta em PDF e gestão da carteira da **ABPAC —
-Associação de Benefícios e Proteção ao Amigo Caminhoneiro**. Vive em `/crm`
-dentro deste projeto Next.js. O app de finanças (`/dashboard`) continua
-funcionando sem alteração.
+Associação de Benefícios e Proteção ao Amigo Caminhoneiro**. Ocupa todo o
+projeto: a raiz redireciona para `/crm`.
+
+> O app de finanças (ProFin) que existia aqui foi aposentado. As cinco tabelas
+> dele no projeto `profin` estavam **zeradas**, e como o Next tem um único
+> `NEXT_PUBLIC_SUPABASE_URL`, manter os dois exigiria dois clientes Supabase e
+> duas telas de login. As rotas `/dashboard` e os componentes de finanças foram
+> removidos; o `/auth` foi rebrandeado e agora leva ao CRM.
 
 ## Onde fica o banco
 

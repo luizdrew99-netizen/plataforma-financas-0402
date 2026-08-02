@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, TrendingUp, Lock, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react"
+import { Loader2, Truck, Lock, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function ResetPasswordPage() {
@@ -81,20 +81,20 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-grid-slate-200/50 dark:bg-grid-slate-800/50 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/20 dark:bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-[#1B4670]/15 dark:bg-[#1B4670]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/20 dark:bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo and Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 mb-4 shadow-lg shadow-emerald-500/25">
-            <TrendingUp className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0E2A47] to-[#1B4670] mb-4 shadow-lg shadow-[#0E2A47]/25">
+            <Truck className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 dark:from-emerald-400 dark:to-blue-400 bg-clip-text text-transparent">
-            ProFin
+          <h1 className="text-3xl font-bold text-[#0E2A47] dark:text-[#7FA6CC]">
+            ABPAC
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-2">
             Redefinir Senha
@@ -190,7 +190,7 @@ export default function ResetPasswordPage() {
             <CardFooter className="flex flex-col gap-3">
               <Button
                 type="submit"
-                className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 shadow-lg shadow-emerald-500/25"
+                className="w-full bg-[#0E2A47] hover:bg-[#1B4670] shadow-lg shadow-[#0E2A47]/25"
                 disabled={loading}
               >
                 {loading ? (
