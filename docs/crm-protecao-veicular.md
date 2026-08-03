@@ -42,6 +42,25 @@ O trigger `handle_new_user` cria o perfil no cadastro: o **primeiro** usuário
 do sistema vira `admin`, os seguintes entram como `consultor` e são promovidos
 em *Usuários*. Hoje já existem dois usuários no banco.
 
+A aba *Criar Conta* precisou de conserto: ela mandava `full_name` no metadado
+(o trigger procura `nome`, então o perfil nasceria batizado com o pedaço do
+e-mail antes do @) e, pior, tentava inserir em `profiles` as colunas
+`full_name` e `user_type`, que **não existem** — o insert estourava e a tela
+dizia "Erro ao criar conta" mesmo com a conta já criada no Supabase. O insert
+saiu: quem cria o perfil é o trigger. Saiu também o seletor "Tipo de Perfil"
+(CLT / MEI), herdado do app de finanças.
+
+O projeto exige **confirmação por e-mail** (dá para ver em `auth.users`: os dois
+cadastros têm `confirmation_sent_at` e só confirmaram minutos depois). Por isso
+a tela agora olha se veio sessão na resposta: se não veio, avisa para confirmar
+o e-mail em vez de mandar para `/crm` — que devolveria a pessoa ao login sem
+explicação.
+
+> Vale decidir: hoje **qualquer pessoa com o endereço do site pode criar uma
+> conta** e entrar como consultor (vendo só a própria carteira, mas dentro do
+> sistema). Se preferir, dá para fechar o cadastro e deixar a criação de
+> usuários só para o admin.
+
 Depois de entrar, complete **Configurações → Empresa**: CNPJ, telefone,
 WhatsApp, e-mail, endereço e a assinatura. Esses campos saem impressos na
 proposta e hoje estão vazios (só o nome, a logo e o rodapé estão preenchidos).

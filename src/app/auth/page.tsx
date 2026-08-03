@@ -88,7 +88,6 @@ export default function AuthPage() {
     const password = formData.get("password") as string
     const confirmPassword = formData.get("confirmPassword") as string
     const fullName = formData.get("fullName") as string
-    const userType = formData.get("userType") as string
 
     // Validações
     if (!validateEmail(email)) {
@@ -113,31 +112,30 @@ export default function AuthPage() {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            full_name: fullName,
-            user_type: userType,
-          },
-        },
+        // A chave tem que ser `nome`: é o que o trigger `handle_new_user`
+        // procura em `raw_user_meta_data` para preencher `profiles.nome`. Com
+        // outro nome de campo, o perfil nasceria batizado com o pedaço do
+        // e-mail antes do @.
+        options: { data: { nome: fullName } },
       })
 
       if (signUpError) throw signUpError
 
-      if (data.user) {
-        // Criar perfil manualmente
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert({
-            id: data.user.id,
-            email: data.user.email!,
-            full_name: fullName,
-            user_type: userType,
-          })
+      // O perfil é criado pelo trigger `handle_new_user`, no banco. Não dá para
+      // inserir daqui: a policy de `profiles` não deixa, e a linha já existe.
+      // O primeiro usuário do sistema nasce admin; os seguintes, consultores —
+      // um admin promove em Usuários.
 
-        if (profileError) throw profileError
-
+      if (data.session) {
         setSuccess("Conta criada com sucesso! Redirecionando...")
-        setTimeout(() => router.push("/crm"), 2000)
+        setTimeout(() => router.push("/crm"), 1500)
+      } else {
+        // Sem sessão na resposta, o projeto exige confirmação por e-mail.
+        // Mandar para /crm aqui devolveria a pessoa para o login sem explicação.
+        setSuccess(
+          "Conta criada. Confirme o cadastro pelo link que enviamos para " +
+            `${email} e depois entre normalmente.`
+        )
       }
     } catch (err: any) {
       setError(err.message || "Erro ao criar conta")
@@ -572,19 +570,14 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="userType">Tipo de Perfil</Label>
-                    <select
-                      id="userType"
-                      name="userType"
-                      className="flex h-10 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4670] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      required
-                      disabled={loading}
-                    >
-                      <option value="clt">CLT - Profissional Assalariado</option>
-                      <option value="mei">MEI - Microempreendedor Individual</option>
-                    </select>
-                  </div>
+                  {/* O seletor "Tipo de Perfil" (CLT / MEI) que existia aqui era
+                      do app de finanças e não significava nada no CRM — o papel
+                      de acesso quem define é um admin, em Usuários. */}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Contas novas entram como <strong>consultor</strong>, vendo
+                    apenas a própria carteira. Um administrador pode mudar o
+                    papel em Usuários.
+                  </p>
 
                   {error && (
                     <Alert variant="destructive">
