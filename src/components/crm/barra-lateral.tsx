@@ -103,6 +103,7 @@ export function BarraLateralCrm() {
           <div className="flex justify-center group-data-[collapsible=icon]:hidden">
             <LogoAssociacao
               url={configuracoes?.logo_url}
+              urlEscura={configuracoes?.logo_url_escura}
               nome={configuracoes?.nome_associacao}
               altura={64}
             />

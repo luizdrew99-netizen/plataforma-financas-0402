@@ -127,7 +127,7 @@ export default function PaginaPropostaPublica() {
               <LogoAssociacao
                 url={empresa?.logo_url}
                 nome={empresa?.nome_associacao}
-                altura={40}
+                altura={48}
               />
             </span>
             <div className="min-w-0">

@@ -103,7 +103,10 @@ export const TAMANHO_MAXIMO_LOGO = 2 * 1024 * 1024
  * guardam a logo da época dentro do snapshot, e apagar o arquivo furaria a
  * imagem naqueles PDFs e nas páginas públicas antigas.
  */
-export async function enviarLogo(arquivo: File): Promise<string> {
+export async function enviarLogo(
+  arquivo: File,
+  variante: "clara" | "escura" = "clara"
+): Promise<string> {
   if (!arquivo.type.startsWith("image/")) {
     throw new Error("A logo precisa ser uma imagem (PNG, JPG, SVG ou WebP).")
   }
@@ -116,7 +119,8 @@ export async function enviarLogo(arquivo: File): Promise<string> {
   const extensao = arquivo.name.includes(".")
     ? arquivo.name.slice(arquivo.name.lastIndexOf(".")).toLowerCase()
     : ".png"
-  const caminho = `associacao/logo-${Date.now()}${extensao}`
+  const sufixo = variante === "escura" ? "-escura" : ""
+  const caminho = `associacao/logo${sufixo}-${Date.now()}${extensao}`
 
   const { error: erroUpload } = await supabase.storage
     .from("logos")
@@ -131,7 +135,9 @@ export async function enviarLogo(arquivo: File): Promise<string> {
   } = supabase.storage.from("logos").getPublicUrl(caminho)
 
   try {
-    await salvarConfiguracoes({ logo_url: publicUrl })
+    await salvarConfiguracoes(
+      variante === "escura" ? { logo_url_escura: publicUrl } : { logo_url: publicUrl }
+    )
   } catch (erro) {
     // Sem o endereço gravado, o arquivo no bucket é lixo que ninguém alcança.
     await supabase.storage.from("logos").remove([caminho])

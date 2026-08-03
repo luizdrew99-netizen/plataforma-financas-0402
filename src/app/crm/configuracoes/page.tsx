@@ -44,6 +44,7 @@ export default function PaginaConfiguracoes() {
   const [listaBeneficios, setListaBeneficios] = useState<Beneficio[]>(beneficios)
   const [salvando, setSalvando] = useState<string | null>(null)
   const campoArquivo = useRef<HTMLInputElement>(null)
+  const campoArquivoEscura = useRef<HTMLInputElement>(null)
 
   useEffect(() => setEmpresa(configuracoes), [configuracoes])
   useEffect(() => setListaCategorias(categorias), [categorias])
@@ -66,11 +67,17 @@ export default function PaginaConfiguracoes() {
   /** Sobe o arquivo e já grava o endereço — sem passar pelo botão Salvar, que
    *  mandaria o resto do formulário junto e poderia sobrescrever campo que o
    *  admin ainda estava editando. */
-  async function trocarLogo(arquivo: File) {
-    setSalvando("logo")
+  async function trocarLogo(arquivo: File, variante: "clara" | "escura") {
+    setSalvando(`logo-${variante}`)
     try {
-      const url = await enviarLogo(arquivo)
-      setEmpresa((atual) => (atual ? { ...atual, logo_url: url } : atual))
+      const url = await enviarLogo(arquivo, variante)
+      setEmpresa((atual) =>
+        atual
+          ? variante === "escura"
+            ? { ...atual, logo_url_escura: url }
+            : { ...atual, logo_url: url }
+          : atual
+      )
       await recarregar()
       toast.success("Logotipo atualizado.")
     } catch (e) {
@@ -313,49 +320,106 @@ export default function PaginaConfiguracoes() {
                 proposta em PDF e na página que o cliente abre pelo QR code.
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-wrap items-center gap-6">
-              <div className="flex min-h-[104px] min-w-[160px] items-center justify-center rounded-lg border bg-white p-4">
-                <LogoAssociacao
-                  url={empresa.logo_url}
-                  nome={empresa.nome_associacao}
-                  altura={72}
-                />
+            <CardContent className="grid gap-6 sm:grid-cols-2">
+              <div className="space-y-3">
+                <div className="flex min-h-[112px] items-center justify-center rounded-lg border bg-white p-4">
+                  {/* Fundo branco fixo: é a versão para fundo claro. */}
+                  <LogoAssociacao
+                    url={empresa.logo_url}
+                    nome={empresa.nome_associacao}
+                    altura={72}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium">Versão principal</p>
+                  <p className="text-muted-foreground text-xs">
+                    Usada no tema claro, no PDF e na página do QR code.
+                  </p>
+                  <input
+                    ref={campoArquivo}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const arquivo = e.target.files?.[0]
+                      // Limpa o campo para o mesmo arquivo poder ser reenviado
+                      // depois de um erro.
+                      e.target.value = ""
+                      if (arquivo) void trocarLogo(arquivo, "clara")
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!ehAdmin || salvando === "logo-clara"}
+                    onClick={() => campoArquivo.current?.click()}
+                    className="gap-1.5"
+                  >
+                    {salvando === "logo-clara" ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Upload className="size-4" />
+                    )}
+                    {empresa.logo_url ? "Trocar" : "Enviar"}
+                  </Button>
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <input
-                  ref={campoArquivo}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const arquivo = e.target.files?.[0]
-                    // Limpa o campo para o mesmo arquivo poder ser reenviado
-                    // depois de um erro.
-                    e.target.value = ""
-                    if (arquivo) void trocarLogo(arquivo)
-                  }}
-                />
-                <Button
-                  variant="outline"
-                  disabled={!ehAdmin || salvando === "logo"}
-                  onClick={() => campoArquivo.current?.click()}
-                  className="gap-1.5"
-                >
-                  {salvando === "logo" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Upload className="size-4" />
-                  )}
-                  {empresa.logo_url ? "Trocar logotipo" : "Enviar logotipo"}
-                </Button>
-                <p className="text-muted-foreground max-w-xs text-xs">
-                  PNG, JPG, SVG ou WebP, até 2 MB. Fundo transparente fica
-                  melhor — a logo é usada tanto em fundo claro quanto escuro. O
-                  arquivo é salvo e aplicado na hora, sem precisar clicar em
-                  Salvar.
-                </p>
+              <div className="space-y-3">
+                <div className="flex min-h-[112px] items-center justify-center rounded-lg border bg-[#0b1220] p-4">
+                  {/* Fundo escuro fixo, mesmo no tema claro: é a única forma de
+                      conferir a versão escura sem trocar o tema do sistema. */}
+                  <LogoAssociacao
+                    url={empresa.logo_url_escura ?? empresa.logo_url}
+                    nome={empresa.nome_associacao}
+                    altura={72}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <p className="text-sm font-medium">
+                    Versão para fundo escuro{" "}
+                    <span className="text-muted-foreground font-normal">
+                      (opcional)
+                    </span>
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    A logo da ABPAC é azul-marinho e sumiria no tema escuro. Sem
+                    esta versão, o sistema mostra a principal sobre uma lasca
+                    branca.
+                  </p>
+                  <input
+                    ref={campoArquivoEscura}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const arquivo = e.target.files?.[0]
+                      e.target.value = ""
+                      if (arquivo) void trocarLogo(arquivo, "escura")
+                    }}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={!ehAdmin || salvando === "logo-escura"}
+                    onClick={() => campoArquivoEscura.current?.click()}
+                    className="gap-1.5"
+                  >
+                    {salvando === "logo-escura" ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Upload className="size-4" />
+                    )}
+                    {empresa.logo_url_escura ? "Trocar" : "Enviar"}
+                  </Button>
+                </div>
               </div>
+
+              <p className="text-muted-foreground text-xs sm:col-span-2">
+                PNG, JPG, SVG ou WebP, até 2 MB. Fundo transparente fica melhor.
+                O arquivo é salvo e aplicado na hora, sem precisar clicar em
+                Salvar.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

@@ -103,20 +103,36 @@ listam.
 
 ### Logotipo
 
-A logo vive no bucket público `logos` e o endereço fica em
-`configuracoes.logo_url`. Ela aparece em quatro lugares: menu lateral, tela de
-login, cabeçalho do PDF e página pública da proposta. Para trocar, use
-*Configurações → Logotipo* — o arquivo sobe e é aplicado na hora, sem passar
-pelo botão Salvar. Só admin consegue (a policy `s_logos_write` exige
-`e_admin()`).
+São **duas** versões, porque a logo da ABPAC é azul-marinho: no tema escuro do
+CRM ela sumiria. `configuracoes.logo_url` é a principal e
+`configuracoes.logo_url_escura` é a de fundo escuro (opcional). Os arquivos
+atuais vivem no repositório, em `public/logo-abpac.png` e
+`public/logo-abpac-clara.png`; a versão clara foi gerada a partir da original,
+trocando o marinho por branco e mantendo o vermelho, que lê bem nos dois fundos.
 
-Três decisões que valem saber:
+Onde cada uma aparece:
 
+| Lugar | Versão |
+|---|---|
+| Menu lateral, tela de login | pelo tema (clara ou escura) |
+| Barra recolhida | monograma |
+| PDF da proposta, página do QR code | sempre a principal (fundo claro) |
+
+Para trocar, use *Configurações → Logotipo* — dois campos, com prévia de cada
+um sobre o fundo certo. O arquivo sobe para o bucket público `logos` e é
+aplicado na hora, sem passar pelo botão Salvar. Só admin consegue (a policy
+`s_logos_write` exige `e_admin()`).
+
+Decisões que valem saber:
+
+- **A troca clara/escura é por CSS (`dark:`), não por `useTheme`.** Com
+  JavaScript a logo apareceria trocada por um instante a cada carregamento.
 - **A largura é livre, a altura é fixa.** Logo de associação costuma ser
-  deitada; forçar um quadrado espremeria o desenho. `LogoAssociacao` fixa a
-  altura e deixa a largura seguir a proporção do arquivo.
+  deitada; forçar um quadrado espremeria o desenho.
 - **Na barra recolhida entra o monograma**, não a logo. Naquela faixa de 3rem
   uma logo deitada ou vaza para fora ou fica ilegível.
+- **Sem versão escura cadastrada**, o tema escuro mostra a principal sobre uma
+  lasca branca — funciona com qualquer arquivo que venha a ser enviado.
 - **O arquivo antigo não é apagado** ao trocar. As propostas já emitidas
   guardam a logo da época dentro do snapshot; apagar furaria a imagem nos PDFs
   e nas páginas públicas antigas.
@@ -126,7 +142,12 @@ no monograma do caminhão em vez de deixar buraco na tela.
 
 A tela de login roda **sem sessão**, e `configuracoes` só é legível por usuário
 autenticado. Por isso ela lê da RPC `identidade_publica()`, que devolve só nome
-e logo.
+e as duas logos.
+
+O **ícone do app** (aba do navegador, atalho no celular) é o caminhão da logo
+sobre o azul-marinho: `src/app/icon.png` e `public/icon-192.png` /
+`icon-512.png`, com o `public/manifest.json` que faltava — a metadata apontava
+para um arquivo inexistente.
 
 ### Link público / QR code
 

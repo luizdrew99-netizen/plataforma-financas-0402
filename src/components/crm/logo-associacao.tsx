@@ -6,8 +6,13 @@ import { Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 type Props = {
-  /** URL da logo (vem de `configuracoes.logo_url`). */
+  /** URL da logo principal, para fundo claro (`configuracoes.logo_url`). */
   url?: string | null
+  /**
+   * URL da versão para fundo escuro (`configuracoes.logo_url_escura`).
+   * Sem ela, o tema escuro mostra a logo principal sobre uma lasca branca.
+   */
+  urlEscura?: string | null
   /** Altura da imagem em pixels. A largura acompanha a proporção do arquivo. */
   altura?: number
   /** Texto alternativo — normalmente o nome da associação. */
@@ -27,12 +32,17 @@ type Props = {
  * forçar um quadrado espremeria o desenho. Fixamos a altura e deixamos a
  * largura seguir a proporção do arquivo.
  *
+ * A troca clara/escura é feita por CSS (`dark:`), não por `useTheme`, para a
+ * logo já sair certa na primeira pintura — com JavaScript ela apareceria
+ * trocada por um instante a cada carregamento de página.
+ *
  * Se não houver URL — ou se a imagem falhar ao carregar, o que acontece quando
  * alguém troca o arquivo no bucket e esquece de atualizar o endereço — cai no
  * monograma do caminhão em vez de deixar um espaço vazio ou um ícone quebrado.
  */
 export function LogoAssociacao({
   url,
+  urlEscura,
   altura = 40,
   nome,
   monograma,
@@ -58,16 +68,36 @@ export function LogoAssociacao({
     )
   }
 
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- a logo vem do
+  const imagem = (endereco: string, extra?: string) => (
+    // eslint-disable-next-line @next/next/no-img-element -- a logo pode vir do
     // Storage do Supabase, com domínio configurável pelo próprio admin; o
     // <Image> do Next exigiria cadastrar o host no next.config.
     <img
-      src={url}
+      src={endereco}
       alt={nome ?? "Logo da associação"}
       onError={() => setFalhou(true)}
-      className={cn("shrink-0 object-contain", className)}
-      style={{ height: altura, maxWidth: altura * 3.5 }}
+      className={cn("shrink-0 object-contain", extra, className)}
+      style={{ height: altura, maxWidth: altura * 4 }}
     />
+  )
+
+  if (urlEscura) {
+    return (
+      <>
+        {imagem(url, "dark:hidden")}
+        {imagem(urlEscura, "hidden dark:block")}
+      </>
+    )
+  }
+
+  // Sem versão escura, a logo pode ser escura demais para o tema escuro — a
+  // lasca branca garante contraste com qualquer arquivo.
+  return (
+    <>
+      {imagem(url, "dark:hidden")}
+      <span className="hidden shrink-0 rounded-md bg-white p-1.5 dark:block">
+        {imagem(url)}
+      </span>
+    </>
   )
 }

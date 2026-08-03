@@ -16,6 +16,7 @@ export default function ResetPasswordPage() {
   const [identidade, setIdentidade] = useState<{
     nome_associacao?: string | null
     logo_url?: string | null
+    logo_url_escura?: string | null
   } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -108,6 +109,7 @@ export default function ResetPasswordPage() {
           <div className="mb-4 flex justify-center">
             <LogoAssociacao
               url={identidade?.logo_url}
+              urlEscura={identidade?.logo_url_escura}
               nome={identidade?.nome_associacao ?? "ABPAC"}
               altura={104}
             />

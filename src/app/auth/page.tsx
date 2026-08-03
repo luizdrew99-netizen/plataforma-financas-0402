@@ -22,13 +22,14 @@ export default function AuthPage() {
   const [resetEmailSent, setResetEmailSent] = useState(false)
   const [showResetPassword, setShowResetPassword] = useState(false)
 
-  // Nome e logo da associação. A tela de login roda sem sessão, e
+  // Nome e logos da associação. A tela de login roda sem sessão, e
   // `configuracoes` só é legível por usuário autenticado — por isso vem da RPC
-  // `identidade_publica`, que devolve só esses dois campos. Enquanto não chega,
-  // a tela mostra o monograma; nada aqui depende da resposta para funcionar.
+  // `identidade_publica`, que devolve só esses campos. Enquanto não chega, a
+  // tela mostra o monograma; nada aqui depende da resposta para funcionar.
   const [identidade, setIdentidade] = useState<{
     nome_associacao?: string | null
     logo_url?: string | null
+    logo_url_escura?: string | null
   } | null>(null)
 
   useEffect(() => {
@@ -228,6 +229,7 @@ export default function AuthPage() {
             <div className="mb-4 flex justify-center">
               <LogoAssociacao
                 url={identidade?.logo_url}
+              urlEscura={identidade?.logo_url_escura}
                 nome={nomeAssociacao}
                 altura={104}
               />
@@ -342,6 +344,7 @@ export default function AuthPage() {
           <div className="mb-4 flex justify-center">
             <LogoAssociacao
               url={identidade?.logo_url}
+              urlEscura={identidade?.logo_url_escura}
               nome={nomeAssociacao}
               altura={128}
             />
