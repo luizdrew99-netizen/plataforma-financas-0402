@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { CheckCircle2, Loader2, MessageCircle, ShieldCheck, Truck } from "lucide-react"
+import { CheckCircle2, Loader2, MessageCircle, ShieldCheck } from "lucide-react"
 
 import { supabase } from "@/lib/supabase"
 import {
@@ -19,6 +19,7 @@ import {
   somenteDigitos,
 } from "@/lib/crm/format"
 import { descreverFaixa } from "@/lib/crm/calc"
+import { LogoAssociacao } from "@/components/crm/logo-associacao"
 import type { SnapshotProposta } from "@/lib/crm/types"
 
 interface PropostaPublica {
@@ -120,8 +121,14 @@ export default function PaginaPropostaPublica() {
       <header className="bg-[#0E2A47] px-4 py-6 text-white">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/10">
-              <Truck className="size-5" />
+            {/* O cabeçalho é azul-escuro e a logo pode ter traço escuro — daí a
+                lasca branca por baixo, que funciona com qualquer arquivo. */}
+            <span className="flex shrink-0 items-center justify-center rounded-lg bg-white p-1.5">
+              <LogoAssociacao
+                url={empresa?.logo_url}
+                nome={empresa?.nome_associacao}
+                altura={48}
+              />
             </span>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold sm:text-base">

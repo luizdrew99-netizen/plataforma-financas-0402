@@ -7,17 +7,33 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Truck, Lock, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react"
+import { Loader2, Lock, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { LogoAssociacao } from "@/components/crm/logo-associacao"
 
 export default function ResetPasswordPage() {
   const router = useRouter()
+  const [identidade, setIdentidade] = useState<{
+    nome_associacao?: string | null
+    logo_url?: string | null
+    logo_url_escura?: string | null
+  } | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let ativo = true
+    supabase.rpc("identidade_publica").then(({ data }) => {
+      if (ativo && data) setIdentidade(data as typeof identidade)
+    })
+    return () => {
+      ativo = false
+    }
+  }, [])
 
   useEffect(() => {
     // Verificar se há um hash de recuperação na URL
@@ -90,12 +106,19 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo and Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0E2A47] to-[#1B4670] mb-4 shadow-lg shadow-[#0E2A47]/25">
-            <Truck className="w-8 h-8 text-white" />
+          <div className="mb-4 flex justify-center">
+            <LogoAssociacao
+              url={identidade?.logo_url}
+              urlEscura={identidade?.logo_url_escura}
+              nome={identidade?.nome_associacao ?? "ABPAC"}
+              altura={104}
+            />
           </div>
-          <h1 className="text-3xl font-bold text-[#0E2A47] dark:text-[#7FA6CC]">
-            ABPAC
-          </h1>
+          {!identidade?.logo_url && (
+            <h1 className="text-3xl font-bold text-[#0E2A47] dark:text-[#7FA6CC]">
+              ABPAC
+            </h1>
+          )}
           <p className="text-slate-600 dark:text-slate-400 mt-2">
             Redefinir Senha
           </p>

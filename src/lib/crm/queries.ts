@@ -91,6 +91,62 @@ export async function salvarConfiguracoes(
   if (error) falhar("Não foi possível salvar as configurações", error)
 }
 
+/** Tamanho máximo da logo. Ela é embutida em todo PDF gerado — um arquivo
+ *  gigante aqui deixaria cada proposta pesada sem nenhum ganho visual. */
+export const TAMANHO_MAXIMO_LOGO = 2 * 1024 * 1024
+
+/**
+ * Sobe a logo para o bucket público `logos` e grava o endereço nas
+ * configurações. Só admin passa: a policy `s_logos_write` exige `e_admin()`.
+ *
+ * O arquivo antigo não é apagado de propósito — as propostas já emitidas
+ * guardam a logo da época dentro do snapshot, e apagar o arquivo furaria a
+ * imagem naqueles PDFs e nas páginas públicas antigas.
+ */
+export async function enviarLogo(
+  arquivo: File,
+  variante: "clara" | "escura" = "clara"
+): Promise<string> {
+  if (!arquivo.type.startsWith("image/")) {
+    throw new Error("A logo precisa ser uma imagem (PNG, JPG, SVG ou WebP).")
+  }
+  if (arquivo.size > TAMANHO_MAXIMO_LOGO) {
+    throw new Error(
+      `A imagem tem ${(arquivo.size / 1024 / 1024).toFixed(1)} MB. O limite é 2 MB.`
+    )
+  }
+
+  const extensao = arquivo.name.includes(".")
+    ? arquivo.name.slice(arquivo.name.lastIndexOf(".")).toLowerCase()
+    : ".png"
+  const sufixo = variante === "escura" ? "-escura" : ""
+  const caminho = `associacao/logo${sufixo}-${Date.now()}${extensao}`
+
+  const { error: erroUpload } = await supabase.storage
+    .from("logos")
+    .upload(caminho, arquivo, {
+      contentType: arquivo.type || "image/png",
+      upsert: false,
+    })
+  if (erroUpload) falhar("Não foi possível enviar a logo", erroUpload)
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from("logos").getPublicUrl(caminho)
+
+  try {
+    await salvarConfiguracoes(
+      variante === "escura" ? { logo_url_escura: publicUrl } : { logo_url: publicUrl }
+    )
+  } catch (erro) {
+    // Sem o endereço gravado, o arquivo no bucket é lixo que ninguém alcança.
+    await supabase.storage.from("logos").remove([caminho])
+    throw erro
+  }
+
+  return publicUrl
+}
+
 export async function listarCategorias(): Promise<Categoria[]> {
   const { data, error } = await supabase
     .from("categorias")

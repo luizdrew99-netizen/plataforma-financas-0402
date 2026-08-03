@@ -45,6 +45,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { supabase } from "@/lib/supabase"
 import { iniciais } from "@/lib/crm/format"
+import { LogoAssociacao } from "./logo-associacao"
 import { useCrm } from "./provedor-crm"
 
 const ITENS_PRINCIPAIS = [
@@ -95,14 +96,29 @@ export function BarraLateralCrm() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader>
-        <div className="flex items-center gap-2.5 px-2 py-2">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#0E2A47] to-[#1B4670] shadow-sm">
-            <Truck className="size-5 text-white" />
+        {/* Recolhida, a barra tem 3rem de largura: a logo encolhe para caber no
+            lugar do ícone. Aberta, ela ganha uma faixa própria acima do nome —
+            é o primeiro elemento da tela e merece o espaço. */}
+        <div className="flex flex-col gap-2 px-2 py-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-1">
+          <div className="flex justify-center group-data-[collapsible=icon]:hidden">
+            <LogoAssociacao
+              url={configuracoes?.logo_url}
+              urlEscura={configuracoes?.logo_url_escura}
+              nome={configuracoes?.nome_associacao}
+              altura={64}
+            />
           </div>
-          <div className="min-w-0 group-data-[collapsible=icon]:hidden">
-            <p className="truncate text-sm font-semibold leading-tight">
-              {configuracoes?.nome_associacao ?? "Proteção Veicular"}
-            </p>
+          <div className="hidden justify-center group-data-[collapsible=icon]:flex">
+            <LogoAssociacao monograma altura={28} />
+          </div>
+          <div className="min-w-0 text-center group-data-[collapsible=icon]:hidden">
+            {/* A logo quase sempre já traz o nome escrito; repeti-lo aqui só
+                rendia uma linha cortada com reticências. */}
+            {!configuracoes?.logo_url && (
+              <p className="truncate text-sm font-semibold leading-tight">
+                {configuracoes?.nome_associacao ?? "Proteção Veicular"}
+              </p>
+            )}
             <p className="text-muted-foreground truncate text-[11px] leading-tight">
               CRM de simulações
             </p>

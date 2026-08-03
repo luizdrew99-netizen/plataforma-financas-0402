@@ -32,9 +32,34 @@ vão em `.env.local`, que não é versionado.
 
 ### Primeiro acesso
 
+O login é por e-mail e senha. O botão "Continuar com Google" que existia na
+tela saiu: o provedor Google não está habilitado no projeto Supabase, e clicar
+nele só rendia `400 provider is not enabled` — havia tentativa real registrada
+no log. Para trazê-lo de volta, habilite o provedor no painel do Supabase
+primeiro.
+
 O trigger `handle_new_user` cria o perfil no cadastro: o **primeiro** usuário
 do sistema vira `admin`, os seguintes entram como `consultor` e são promovidos
 em *Usuários*. Hoje já existem dois usuários no banco.
+
+A aba *Criar Conta* precisou de conserto: ela mandava `full_name` no metadado
+(o trigger procura `nome`, então o perfil nasceria batizado com o pedaço do
+e-mail antes do @) e, pior, tentava inserir em `profiles` as colunas
+`full_name` e `user_type`, que **não existem** — o insert estourava e a tela
+dizia "Erro ao criar conta" mesmo com a conta já criada no Supabase. O insert
+saiu: quem cria o perfil é o trigger. Saiu também o seletor "Tipo de Perfil"
+(CLT / MEI), herdado do app de finanças.
+
+O projeto exige **confirmação por e-mail** (dá para ver em `auth.users`: os dois
+cadastros têm `confirmation_sent_at` e só confirmaram minutos depois). Por isso
+a tela agora olha se veio sessão na resposta: se não veio, avisa para confirmar
+o e-mail em vez de mandar para `/crm` — que devolveria a pessoa ao login sem
+explicação.
+
+> Vale decidir: hoje **qualquer pessoa com o endereço do site pode criar uma
+> conta** e entrar como consultor (vendo só a própria carteira, mas dentro do
+> sistema). Se preferir, dá para fechar o cadastro e deixar a criação de
+> usuários só para o admin.
 
 Depois de entrar, complete **Configurações → Empresa**: CNPJ, telefone,
 WhatsApp, e-mail, endereço e a assinatura. Esses campos saem impressos na
@@ -94,6 +119,54 @@ headless Chrome, o que funciona em deploy serverless (Vercel). Fluxo em
 Cada geração vira uma **versão nova** em `simulacao_pdfs`. O módulo é carregado
 sob demanda (`await import(...)`) para não pesar o bundle das telas que só
 listam.
+
+### Logotipo
+
+São **duas** versões, porque a logo da ABPAC é azul-marinho: no tema escuro do
+CRM ela sumiria. `configuracoes.logo_url` é a principal e
+`configuracoes.logo_url_escura` é a de fundo escuro (opcional). Os arquivos
+atuais vivem no repositório, em `public/logo-abpac.png` e
+`public/logo-abpac-clara.png`; a versão clara foi gerada a partir da original,
+trocando o marinho por branco e mantendo o vermelho, que lê bem nos dois fundos.
+
+Onde cada uma aparece:
+
+| Lugar | Versão |
+|---|---|
+| Menu lateral, tela de login | pelo tema (clara ou escura) |
+| Barra recolhida | monograma |
+| PDF da proposta, página do QR code | sempre a principal (fundo claro) |
+
+Para trocar, use *Configurações → Logotipo* — dois campos, com prévia de cada
+um sobre o fundo certo. O arquivo sobe para o bucket público `logos` e é
+aplicado na hora, sem passar pelo botão Salvar. Só admin consegue (a policy
+`s_logos_write` exige `e_admin()`).
+
+Decisões que valem saber:
+
+- **A troca clara/escura é por CSS (`dark:`), não por `useTheme`.** Com
+  JavaScript a logo apareceria trocada por um instante a cada carregamento.
+- **A largura é livre, a altura é fixa.** Logo de associação costuma ser
+  deitada; forçar um quadrado espremeria o desenho.
+- **Na barra recolhida entra o monograma**, não a logo. Naquela faixa de 3rem
+  uma logo deitada ou vaza para fora ou fica ilegível.
+- **Sem versão escura cadastrada**, o tema escuro mostra a principal sobre uma
+  lasca branca — funciona com qualquer arquivo que venha a ser enviado.
+- **O arquivo antigo não é apagado** ao trocar. As propostas já emitidas
+  guardam a logo da época dentro do snapshot; apagar furaria a imagem nos PDFs
+  e nas páginas públicas antigas.
+
+Quando a logo não carrega — arquivo removido do bucket, endereço errado — cai
+no monograma do caminhão em vez de deixar buraco na tela.
+
+A tela de login roda **sem sessão**, e `configuracoes` só é legível por usuário
+autenticado. Por isso ela lê da RPC `identidade_publica()`, que devolve só nome
+e as duas logos.
+
+O **ícone do app** (aba do navegador, atalho no celular) é o caminhão da logo
+sobre o azul-marinho: `src/app/icon.png` e `public/icon-192.png` /
+`icon-512.png`, com o `public/manifest.json` que faltava — a metadata apontava
+para um arquivo inexistente.
 
 ### Link público / QR code
 
@@ -168,10 +241,9 @@ exato que o formulário monta:
 Todos os dados de teste foram removidos depois, e as configurações voltaram ao
 estado anterior.
 
-**Ainda não verificado por falta de rede no ambiente:** o clique real nas telas
-contra o Supabase (login, navegação, download do PDF pelo botão) e o
-carregamento da logo dentro do PDF. Vale um teste manual rápido no primeiro
-acesso.
+**Ainda não verificado por falta de rede no ambiente:** o download do PDF pelo
+botão e o carregamento da logo real (do bucket) dentro do PDF. O login em
+produção já foi confirmado — aparece no log de autenticação do projeto.
 
 ## Documentos, auditoria e vencimentos
 

@@ -1,14 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabase"
+import { LogoAssociacao } from "@/components/crm/logo-associacao"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, Truck, Shield, Zap, Mail, Lock, User, Eye, EyeOff, CheckCircle2, AlertCircle, FileText } from "lucide-react"
+import { Loader2, Shield, Zap, Mail, Lock, User, Eye, EyeOff, CheckCircle2, AlertCircle, FileText } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function AuthPage() {
@@ -20,6 +21,30 @@ export default function AuthPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [resetEmailSent, setResetEmailSent] = useState(false)
   const [showResetPassword, setShowResetPassword] = useState(false)
+
+  // Nome e logos da associação. A tela de login roda sem sessão, e
+  // `configuracoes` só é legível por usuário autenticado — por isso vem da RPC
+  // `identidade_publica`, que devolve só esses campos. Enquanto não chega, a
+  // tela mostra o monograma; nada aqui depende da resposta para funcionar.
+  const [identidade, setIdentidade] = useState<{
+    nome_associacao?: string | null
+    logo_url?: string | null
+    logo_url_escura?: string | null
+  } | null>(null)
+
+  useEffect(() => {
+    let ativo = true
+    supabase
+      .rpc("identidade_publica")
+      .then(({ data }) => {
+        if (ativo && data) setIdentidade(data as typeof identidade)
+      })
+    return () => {
+      ativo = false
+    }
+  }, [])
+
+  const nomeAssociacao = identidade?.nome_associacao ?? "ABPAC"
 
   // Validação de email em tempo real
   const [emailError, setEmailError] = useState<string | null>(null)
@@ -63,7 +88,6 @@ export default function AuthPage() {
     const password = formData.get("password") as string
     const confirmPassword = formData.get("confirmPassword") as string
     const fullName = formData.get("fullName") as string
-    const userType = formData.get("userType") as string
 
     // Validações
     if (!validateEmail(email)) {
@@ -88,31 +112,30 @@ export default function AuthPage() {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: {
-            full_name: fullName,
-            user_type: userType,
-          },
-        },
+        // A chave tem que ser `nome`: é o que o trigger `handle_new_user`
+        // procura em `raw_user_meta_data` para preencher `profiles.nome`. Com
+        // outro nome de campo, o perfil nasceria batizado com o pedaço do
+        // e-mail antes do @.
+        options: { data: { nome: fullName } },
       })
 
       if (signUpError) throw signUpError
 
-      if (data.user) {
-        // Criar perfil manualmente
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert({
-            id: data.user.id,
-            email: data.user.email!,
-            full_name: fullName,
-            user_type: userType,
-          })
+      // O perfil é criado pelo trigger `handle_new_user`, no banco. Não dá para
+      // inserir daqui: a policy de `profiles` não deixa, e a linha já existe.
+      // O primeiro usuário do sistema nasce admin; os seguintes, consultores —
+      // um admin promove em Usuários.
 
-        if (profileError) throw profileError
-
+      if (data.session) {
         setSuccess("Conta criada com sucesso! Redirecionando...")
-        setTimeout(() => router.push("/crm"), 2000)
+        setTimeout(() => router.push("/crm"), 1500)
+      } else {
+        // Sem sessão na resposta, o projeto exige confirmação por e-mail.
+        // Mandar para /crm aqui devolveria a pessoa para o login sem explicação.
+        setSuccess(
+          "Conta criada. Confirme o cadastro pelo link que enviamos para " +
+            `${email} e depois entre normalmente.`
+        )
       }
     } catch (err: any) {
       setError(err.message || "Erro ao criar conta")
@@ -185,24 +208,10 @@ export default function AuthPage() {
     }
   }
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true)
-    setError(null)
-
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/crm`,
-        },
-      })
-
-      if (error) throw error
-    } catch (err: any) {
-      setError(err.message || "Erro ao fazer login com Google")
-      setLoading(false)
-    }
-  }
+  // O botão "Continuar com Google" saiu daqui: o provedor Google não está
+  // habilitado no projeto Supabase, então clicar nele só rendia um 400
+  // ("provider is not enabled") — o log de autenticação registra tentativas
+  // reais. Para reativar, ligue o provedor no painel do Supabase primeiro.
 
   if (showResetPassword) {
     return (
@@ -215,12 +224,19 @@ export default function AuthPage() {
         <div className="w-full max-w-md relative z-10">
           {/* Logo and Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0E2A47] to-[#1B4670] mb-4 shadow-lg shadow-[#0E2A47]/25">
-              <Truck className="w-8 h-8 text-white" />
+            <div className="mb-4 flex justify-center">
+              <LogoAssociacao
+                url={identidade?.logo_url}
+              urlEscura={identidade?.logo_url_escura}
+                nome={nomeAssociacao}
+                altura={104}
+              />
             </div>
-            <h1 className="text-3xl font-bold text-[#0E2A47] dark:text-[#7FA6CC]">
-              ABPAC
-            </h1>
+            {!identidade?.logo_url && (
+              <h1 className="text-3xl font-bold text-[#0E2A47] dark:text-[#7FA6CC]">
+                ABPAC
+              </h1>
+            )}
             <p className="text-slate-600 dark:text-slate-400 mt-2">
               Recuperar Senha
             </p>
@@ -323,12 +339,20 @@ export default function AuthPage() {
       <div className="w-full max-w-md relative z-10">
         {/* Logo and Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0E2A47] to-[#1B4670] mb-4 shadow-lg shadow-[#0E2A47]/25">
-            <Truck className="w-8 h-8 text-white" />
+          <div className="mb-4 flex justify-center">
+            <LogoAssociacao
+              url={identidade?.logo_url}
+              urlEscura={identidade?.logo_url_escura}
+              nome={nomeAssociacao}
+              altura={128}
+            />
           </div>
-          <h1 className="text-3xl font-bold text-[#0E2A47] dark:text-[#7FA6CC]">
-            ABPAC
-          </h1>
+          {/* Com logo no ar, o título repetiria o que já está desenhado nela. */}
+          {!identidade?.logo_url && (
+            <h1 className="text-3xl font-bold text-[#0E2A47] dark:text-[#7FA6CC]">
+              ABPAC
+            </h1>
+          )}
           <p className="text-slate-600 dark:text-slate-400 mt-2">
             CRM de Proteção Veicular
           </p>
@@ -347,46 +371,6 @@ export default function AuthPage() {
             <TabsContent value="signin">
               <form onSubmit={handleSignIn}>
                 <CardContent className="space-y-4">
-                  {/* Google Sign In */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleGoogleSignIn}
-                    disabled={loading}
-                  >
-                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                      <path
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        fill="#4285F4"
-                      />
-                      <path
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        fill="#34A853"
-                      />
-                      <path
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                        fill="#FBBC05"
-                      />
-                      <path
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                        fill="#EA4335"
-                      />
-                    </svg>
-                    Continuar com Google
-                  </Button>
-
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-slate-200 dark:border-slate-800" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white dark:bg-slate-900 px-2 text-slate-500">
-                        Ou continue com email
-                      </span>
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="signin-email">Email</Label>
                     <div className="relative">
@@ -484,46 +468,6 @@ export default function AuthPage() {
             <TabsContent value="signup">
               <form onSubmit={handleSignUp}>
                 <CardContent className="space-y-4">
-                  {/* Google Sign In */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    onClick={handleGoogleSignIn}
-                    disabled={loading}
-                  >
-                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                      <path
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                        fill="#4285F4"
-                      />
-                      <path
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                        fill="#34A853"
-                      />
-                      <path
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                        fill="#FBBC05"
-                      />
-                      <path
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                        fill="#EA4335"
-                      />
-                    </svg>
-                    Continuar com Google
-                  </Button>
-
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t border-slate-200 dark:border-slate-800" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-white dark:bg-slate-900 px-2 text-slate-500">
-                        Ou crie sua conta
-                      </span>
-                    </div>
-                  </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Nome Completo</Label>
                     <div className="relative">
@@ -626,19 +570,14 @@ export default function AuthPage() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="userType">Tipo de Perfil</Label>
-                    <select
-                      id="userType"
-                      name="userType"
-                      className="flex h-10 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4670] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                      required
-                      disabled={loading}
-                    >
-                      <option value="clt">CLT - Profissional Assalariado</option>
-                      <option value="mei">MEI - Microempreendedor Individual</option>
-                    </select>
-                  </div>
+                  {/* O seletor "Tipo de Perfil" (CLT / MEI) que existia aqui era
+                      do app de finanças e não significava nada no CRM — o papel
+                      de acesso quem define é um admin, em Usuários. */}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Contas novas entram como <strong>consultor</strong>, vendo
+                    apenas a própria carteira. Um administrador pode mudar o
+                    papel em Usuários.
+                  </p>
 
                   {error && (
                     <Alert variant="destructive">

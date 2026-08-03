@@ -48,6 +48,7 @@ export interface Configuracoes {
   whatsapp: string | null
   email: string | null
   logo_url: string | null
+  logo_url_escura: string | null
   rodape_pdf: string | null
   endereco: string | null
   site: string | null
@@ -194,6 +195,9 @@ export interface SnapshotEmpresa {
   assinatura_nome: string | null
   assinatura_cargo: string | null
 }
+// A versão escura da logo não entra no snapshot de propósito: a proposta em
+// PDF e a página pública têm fundo claro, então só a logo principal é usada
+// nos dois.
 
 export interface SnapshotCategoria {
   codigo: string | null
