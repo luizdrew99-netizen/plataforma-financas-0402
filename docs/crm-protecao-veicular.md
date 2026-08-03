@@ -32,6 +32,12 @@ vão em `.env.local`, que não é versionado.
 
 ### Primeiro acesso
 
+O login é por e-mail e senha. O botão "Continuar com Google" que existia na
+tela saiu: o provedor Google não está habilitado no projeto Supabase, e clicar
+nele só rendia `400 provider is not enabled` — havia tentativa real registrada
+no log. Para trazê-lo de volta, habilite o provedor no painel do Supabase
+primeiro.
+
 O trigger `handle_new_user` cria o perfil no cadastro: o **primeiro** usuário
 do sistema vira `admin`, os seguintes entram como `consultor` e são promovidos
 em *Usuários*. Hoje já existem dois usuários no banco.
@@ -94,6 +100,33 @@ headless Chrome, o que funciona em deploy serverless (Vercel). Fluxo em
 Cada geração vira uma **versão nova** em `simulacao_pdfs`. O módulo é carregado
 sob demanda (`await import(...)`) para não pesar o bundle das telas que só
 listam.
+
+### Logotipo
+
+A logo vive no bucket público `logos` e o endereço fica em
+`configuracoes.logo_url`. Ela aparece em quatro lugares: menu lateral, tela de
+login, cabeçalho do PDF e página pública da proposta. Para trocar, use
+*Configurações → Logotipo* — o arquivo sobe e é aplicado na hora, sem passar
+pelo botão Salvar. Só admin consegue (a policy `s_logos_write` exige
+`e_admin()`).
+
+Três decisões que valem saber:
+
+- **A largura é livre, a altura é fixa.** Logo de associação costuma ser
+  deitada; forçar um quadrado espremeria o desenho. `LogoAssociacao` fixa a
+  altura e deixa a largura seguir a proporção do arquivo.
+- **Na barra recolhida entra o monograma**, não a logo. Naquela faixa de 3rem
+  uma logo deitada ou vaza para fora ou fica ilegível.
+- **O arquivo antigo não é apagado** ao trocar. As propostas já emitidas
+  guardam a logo da época dentro do snapshot; apagar furaria a imagem nos PDFs
+  e nas páginas públicas antigas.
+
+Quando a logo não carrega — arquivo removido do bucket, endereço errado — cai
+no monograma do caminhão em vez de deixar buraco na tela.
+
+A tela de login roda **sem sessão**, e `configuracoes` só é legível por usuário
+autenticado. Por isso ela lê da RPC `identidade_publica()`, que devolve só nome
+e logo.
 
 ### Link público / QR code
 
@@ -168,10 +201,9 @@ exato que o formulário monta:
 Todos os dados de teste foram removidos depois, e as configurações voltaram ao
 estado anterior.
 
-**Ainda não verificado por falta de rede no ambiente:** o clique real nas telas
-contra o Supabase (login, navegação, download do PDF pelo botão) e o
-carregamento da logo dentro do PDF. Vale um teste manual rápido no primeiro
-acesso.
+**Ainda não verificado por falta de rede no ambiente:** o download do PDF pelo
+botão e o carregamento da logo real (do bucket) dentro do PDF. O login em
+produção já foi confirmado — aparece no log de autenticação do projeto.
 
 ## Documentos, auditoria e vencimentos
 

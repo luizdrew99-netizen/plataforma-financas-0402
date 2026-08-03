@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Loader2, Plus, Save, Trash2 } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
+import { Loader2, Plus, Save, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -20,8 +20,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CampoMoeda } from "@/components/crm/campo-moeda"
+import { LogoAssociacao } from "@/components/crm/logo-associacao"
 import { useCrm } from "@/components/crm/provedor-crm"
 import {
+  enviarLogo,
   excluirCategoria,
   excluirCobertura,
   salvarBeneficio,
@@ -41,6 +43,7 @@ export default function PaginaConfiguracoes() {
   const [listaCoberturas, setListaCoberturas] = useState<Cobertura[]>(coberturas)
   const [listaBeneficios, setListaBeneficios] = useState<Beneficio[]>(beneficios)
   const [salvando, setSalvando] = useState<string | null>(null)
+  const campoArquivo = useRef<HTMLInputElement>(null)
 
   useEffect(() => setEmpresa(configuracoes), [configuracoes])
   useEffect(() => setListaCategorias(categorias), [categorias])
@@ -55,6 +58,23 @@ export default function PaginaConfiguracoes() {
       toast.success(sucesso)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao salvar.")
+    } finally {
+      setSalvando(null)
+    }
+  }
+
+  /** Sobe o arquivo e já grava o endereço — sem passar pelo botão Salvar, que
+   *  mandaria o resto do formulário junto e poderia sobrescrever campo que o
+   *  admin ainda estava editando. */
+  async function trocarLogo(arquivo: File) {
+    setSalvando("logo")
+    try {
+      const url = await enviarLogo(arquivo)
+      setEmpresa((atual) => (atual ? { ...atual, logo_url: url } : atual))
+      await recarregar()
+      toast.success("Logotipo atualizado.")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao enviar a logo.")
     } finally {
       setSalvando(null)
     }
@@ -122,6 +142,9 @@ export default function PaginaConfiguracoes() {
                   placeholder="https://…/logo.png"
                   onChange={(e) => setEmpresa({ ...empresa, logo_url: e.target.value })}
                 />
+                <p className="text-muted-foreground text-xs">
+                  Preenchido sozinho ao enviar um arquivo no cartão abaixo.
+                </p>
               </div>
 
               <div className="space-y-1.5">
@@ -279,6 +302,60 @@ export default function PaginaConfiguracoes() {
                   </Button>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Logotipo</CardTitle>
+              <CardDescription>
+                Aparece no menu lateral, na tela de login, no cabeçalho da
+                proposta em PDF e na página que o cliente abre pelo QR code.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center gap-6">
+              <div className="flex min-h-[104px] min-w-[160px] items-center justify-center rounded-lg border bg-white p-4">
+                <LogoAssociacao
+                  url={empresa.logo_url}
+                  nome={empresa.nome_associacao}
+                  altura={72}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <input
+                  ref={campoArquivo}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const arquivo = e.target.files?.[0]
+                    // Limpa o campo para o mesmo arquivo poder ser reenviado
+                    // depois de um erro.
+                    e.target.value = ""
+                    if (arquivo) void trocarLogo(arquivo)
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  disabled={!ehAdmin || salvando === "logo"}
+                  onClick={() => campoArquivo.current?.click()}
+                  className="gap-1.5"
+                >
+                  {salvando === "logo" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Upload className="size-4" />
+                  )}
+                  {empresa.logo_url ? "Trocar logotipo" : "Enviar logotipo"}
+                </Button>
+                <p className="text-muted-foreground max-w-xs text-xs">
+                  PNG, JPG, SVG ou WebP, até 2 MB. Fundo transparente fica
+                  melhor — a logo é usada tanto em fundo claro quanto escuro. O
+                  arquivo é salvo e aplicado na hora, sem precisar clicar em
+                  Salvar.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

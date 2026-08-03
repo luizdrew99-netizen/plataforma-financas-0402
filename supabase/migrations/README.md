@@ -9,6 +9,7 @@ fonte da verdade. O histórico aplicado lá é:
 | `20260723013130` | `crm_protecao_veicular_storage` | sistema anterior — buckets `documentos`, `logos`, `propostas` |
 | `20260731034626` | `crm_complementos_app_novo` | este app — colunas novas, view, RPCs |
 | `20260731040306` | `crm_total_mensal_com_extras` | este app — correção da coluna gerada |
+| `20260803205547` | `crm_identidade_publica` | este app — nome e logo para a tela de login |
 
 As duas primeiras foram criadas pelo sistema anterior e **não** estão
 versionadas aqui; para obtê-las, use `supabase db pull` ou copie de
@@ -51,6 +52,11 @@ uma coluna gerada, então ela foi recriada incluindo `valor_beneficios_extras`
 - `duplicar_simulacao(uuid)` — copia simulação e veículo, como rascunho.
 - `dashboard_resumo()` — todos os indicadores em uma chamada.
 - `busca_global(text)` — nome, CPF, CNPJ, placa, marca, modelo, telefone.
+- `identidade_publica()` — nome e logo da associação, para a tela de login, que
+  roda sem sessão. `configuracoes` continua legível só por usuário autenticado:
+  esta função é `security definer` e devolve **apenas esses dois campos**, os
+  mesmos que já apareciam na página pública da proposta. CNPJ, telefone,
+  e-mail e endereço não saem por ela.
 
 ## Aproveitado do sistema anterior (não recriado)
 

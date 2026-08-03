@@ -62,18 +62,23 @@ const estilos = StyleSheet.create({
     paddingBottom: 12,
     marginBottom: 16,
   },
-  cabecalhoEsquerda: { flexDirection: "row", alignItems: "center", maxWidth: 330 },
-  logo: { width: 54, height: 54, objectFit: "contain", marginRight: 12 },
+  cabecalhoEsquerda: { flexDirection: "row", alignItems: "center", maxWidth: 380 },
+  // A caixa é deitada, não quadrada: logo de associação quase sempre é mais
+  // larga do que alta, e com `contain` uma logo quadrada continua cabendo —
+  // só não ocupa a largura toda. A área útil da página é 523pt e o selo do
+  // número da proposta come ~120, então 112 aqui ainda deixa espaço para o
+  // nome e os contatos ao lado.
+  logo: { width: 112, height: 68, objectFit: "contain", marginRight: 14 },
   logoVazio: {
-    width: 54,
-    height: 54,
-    marginRight: 12,
+    width: 68,
+    height: 68,
+    marginRight: 14,
     borderRadius: 6,
     backgroundColor: CORES.navy,
     alignItems: "center",
     justifyContent: "center",
   },
-  logoVazioTexto: { color: CORES.branco, fontSize: 16, fontFamily: "Helvetica-Bold" },
+  logoVazioTexto: { color: CORES.branco, fontSize: 20, fontFamily: "Helvetica-Bold" },
   nomeEmpresa: { fontSize: 12, fontFamily: "Helvetica-Bold", color: CORES.navy },
   contatoEmpresa: { fontSize: 7.5, color: CORES.cinza, marginTop: 2 },
 
