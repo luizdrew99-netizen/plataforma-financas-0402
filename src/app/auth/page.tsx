@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, TrendingUp, Shield, Zap, Mail, Lock, User, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react"
+import { Loader2, Truck, Shield, Zap, Mail, Lock, User, Eye, EyeOff, CheckCircle2, AlertCircle, FileText } from "lucide-react"
 import { useRouter } from "next/navigation"
 
 export default function AuthPage() {
@@ -112,7 +112,7 @@ export default function AuthPage() {
         if (profileError) throw profileError
 
         setSuccess("Conta criada com sucesso! Redirecionando...")
-        setTimeout(() => router.push("/dashboard"), 2000)
+        setTimeout(() => router.push("/crm"), 2000)
       }
     } catch (err: any) {
       setError(err.message || "Erro ao criar conta")
@@ -146,7 +146,7 @@ export default function AuthPage() {
       if (signInError) throw signInError
 
       setSuccess("Login realizado com sucesso! Redirecionando...")
-      setTimeout(() => router.push("/dashboard"), 1000)
+      setTimeout(() => router.push("/crm"), 1000)
     } catch (err: any) {
       setError(err.message || "Email ou senha incorretos")
     } finally {
@@ -193,7 +193,7 @@ export default function AuthPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`,
+          redirectTo: `${window.location.origin}/crm`,
         },
       })
 
@@ -206,20 +206,20 @@ export default function AuthPage() {
 
   if (showResetPassword) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 bg-grid-slate-200/50 dark:bg-grid-slate-800/50 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
-        <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/20 dark:bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-96 h-96 bg-[#1B4670]/15 dark:bg-[#1B4670]/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/20 dark:bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="w-full max-w-md relative z-10">
           {/* Logo and Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 mb-4 shadow-lg shadow-emerald-500/25">
-              <TrendingUp className="w-8 h-8 text-white" />
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0E2A47] to-[#1B4670] mb-4 shadow-lg shadow-[#0E2A47]/25">
+              <Truck className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 dark:from-emerald-400 dark:to-blue-400 bg-clip-text text-transparent">
-              ProFin
+            <h1 className="text-3xl font-bold text-[#0E2A47] dark:text-[#7FA6CC]">
+              ABPAC
             </h1>
             <p className="text-slate-600 dark:text-slate-400 mt-2">
               Recuperar Senha
@@ -275,7 +275,7 @@ export default function AuthPage() {
               <CardFooter className="flex flex-col gap-3">
                 <Button
                   type="submit"
-                  className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700"
+                  className="w-full bg-[#0E2A47] hover:bg-[#1B4670]"
                   disabled={loading || resetEmailSent}
                 >
                   {loading ? (
@@ -314,23 +314,23 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Effects */}
       <div className="absolute inset-0 bg-grid-slate-200/50 dark:bg-grid-slate-800/50 [mask-image:radial-gradient(ellipse_at_center,transparent_20%,black)] pointer-events-none" />
-      <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/20 dark:bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-0 right-0 w-96 h-96 bg-[#1B4670]/15 dark:bg-[#1B4670]/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/20 dark:bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="w-full max-w-md relative z-10">
         {/* Logo and Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 mb-4 shadow-lg shadow-emerald-500/25">
-            <TrendingUp className="w-8 h-8 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-[#0E2A47] to-[#1B4670] mb-4 shadow-lg shadow-[#0E2A47]/25">
+            <Truck className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-blue-600 dark:from-emerald-400 dark:to-blue-400 bg-clip-text text-transparent">
-            ProFin
+          <h1 className="text-3xl font-bold text-[#0E2A47] dark:text-[#7FA6CC]">
+            ABPAC
           </h1>
           <p className="text-slate-600 dark:text-slate-400 mt-2">
-            Gestão Financeira Profissional
+            CRM de Proteção Veicular
           </p>
         </div>
 
@@ -441,7 +441,7 @@ export default function AuthPage() {
                     <button
                       type="button"
                       onClick={() => setShowResetPassword(true)}
-                      className="text-sm text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                      className="text-sm text-[#1B4670] hover:text-[#0E2A47] dark:text-[#7FA6CC] dark:hover:text-[#A9C5DF]"
                     >
                       Esqueceu a senha?
                     </button>
@@ -464,7 +464,7 @@ export default function AuthPage() {
                 <CardFooter>
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 shadow-lg shadow-emerald-500/25"
+                    className="w-full bg-[#0E2A47] hover:bg-[#1B4670] shadow-lg shadow-[#0E2A47]/25"
                     disabled={loading}
                   >
                     {loading ? (
@@ -631,7 +631,7 @@ export default function AuthPage() {
                     <select
                       id="userType"
                       name="userType"
-                      className="flex h-10 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex h-10 w-full rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 px-3 py-2 text-sm ring-offset-white file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4670] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                       required
                       disabled={loading}
                     >
@@ -657,7 +657,7 @@ export default function AuthPage() {
                 <CardFooter>
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-emerald-500 to-blue-600 hover:from-emerald-600 hover:to-blue-700 shadow-lg shadow-emerald-500/25"
+                    className="w-full bg-[#0E2A47] hover:bg-[#1B4670] shadow-lg shadow-[#0E2A47]/25"
                     disabled={loading}
                   >
                     {loading ? (
@@ -678,8 +678,8 @@ export default function AuthPage() {
         {/* Features */}
         <div className="mt-8 grid grid-cols-3 gap-4 text-center">
           <div className="space-y-2">
-            <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
-              <Shield className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-[#0E2A47]/10 dark:bg-[#1B4670]/25">
+              <Shield className="w-5 h-5 text-[#0E2A47] dark:text-[#7FA6CC]" />
             </div>
             <p className="text-xs text-slate-600 dark:text-slate-400">Seguro</p>
           </div>
@@ -691,20 +691,20 @@ export default function AuthPage() {
           </div>
           <div className="space-y-2">
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900/30">
-              <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+              <FileText className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400">Inteligente</p>
+            <p className="text-xs text-slate-600 dark:text-slate-400">Proposta em PDF</p>
           </div>
         </div>
 
         {/* Footer */}
         <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-8">
           Ao criar uma conta, você concorda com nossos{" "}
-          <a href="#" className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
+          <a href="#" className="text-[#1B4670] hover:text-[#0E2A47] dark:text-[#7FA6CC]">
             Termos de Serviço
           </a>{" "}
           e{" "}
-          <a href="#" className="text-emerald-600 hover:text-emerald-700 dark:text-emerald-400">
+          <a href="#" className="text-[#1B4670] hover:text-[#0E2A47] dark:text-[#7FA6CC]">
             Política de Privacidade
           </a>
         </p>

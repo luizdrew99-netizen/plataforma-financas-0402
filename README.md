@@ -1,36 +1,43 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CRM de Proteção Veicular — ABPAC
 
-## Getting Started
+Sistema da **ABPAC — Associação de Benefícios e Proteção ao Amigo Caminhoneiro**
+para simular proteção veicular de caminhões, emitir a proposta em PDF e
+administrar a carteira de clientes, veículos e contratos.
 
-First, run the development server:
+A documentação completa — arquitetura, regras de cálculo, papéis, o que já foi
+verificado e o backlog — está em **[`docs/crm-protecao-veicular.md`](docs/crm-protecao-veicular.md)**.
+
+## Rodando localmente
 
 ```bash
+npm install
+cp .env.example .env.local   # e preencha a chave anon
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abra <http://localhost:3000>. A raiz redireciona para `/crm`; sem sessão, o
+CRM manda para a tela de login.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variáveis de ambiente
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+NEXT_PUBLIC_SUPABASE_URL=https://pgycjyrcjxtjptcfxzvx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<chave anon do projeto>
+```
 
-## Learn More
+Sem elas o app ainda sobe, mas mostra um aviso dizendo o que falta configurar —
+em vez de quebrar no build.
 
-To learn more about Next.js, take a look at the following resources:
+## Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Next.js 15 (App Router) · React 19 · TypeScript · Tailwind v4 · shadcn/ui ·
+Supabase (Postgres, Auth, Storage, RLS) · `@react-pdf/renderer` para a proposta.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Rotas
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Rota | O que é |
+|---|---|
+| `/` | redireciona para o CRM |
+| `/auth` | login e cadastro |
+| `/crm` | dashboard, simulações, clientes, veículos, contratos, documentos, relatórios, configurações, usuários e auditoria |
+| `/proposta/<token>` | proposta pública — destino do QR code impresso no PDF, abre sem login |

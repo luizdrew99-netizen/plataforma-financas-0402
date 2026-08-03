@@ -11,13 +11,13 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "ProFin - Gestão Financeira Profissional",
-  description: "Plataforma completa para profissionais CLT e MEI gerenciarem suas finanças com inteligência e automação",
+  title: "ABPAC — CRM de Proteção Veicular",
+  description: "Simulação, proposta em PDF e gestão da carteira de proteção veicular para caminhões da ABPAC.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "ProFin",
+    title: "ABPAC",
   },
   formatDetection: {
     telephone: false,
