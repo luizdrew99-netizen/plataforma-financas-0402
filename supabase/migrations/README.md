@@ -11,6 +11,8 @@ fonte da verdade. O histórico aplicado lá é:
 | `20260731040306` | `crm_total_mensal_com_extras` | este app — correção da coluna gerada |
 | `20260803205547` | `crm_identidade_publica` | este app — nome e logo para a tela de login |
 | `20260803220735` | `crm_logo_para_fundo_escuro` | este app — segunda logo, para o tema escuro |
+| `20260808044420` | `crm_endurecimento_funcoes` | este app — `search_path` fixo e grants |
+| `20260808044613` | `crm_endurecimento_funcoes_grants` | este app — o revoke que de fato fecha |
 
 As duas primeiras foram criadas pelo sistema anterior e **não** estão
 versionadas aqui; para obtê-las, use `supabase db pull` ou copie de
@@ -62,6 +64,35 @@ uma coluna gerada, então ela foi recriada incluindo `valor_beneficios_extras`
 E a coluna `configuracoes.logo_url_escura`, para a versão da logo usada no tema
 escuro. É opcional: sem ela, a interface mostra a logo principal sobre uma
 lasca branca.
+
+## Endurecimento (20260808044420 e 20260808044613)
+
+Saíram do verificador de segurança do Supabase. Não mudam comportamento:
+
+- `search_path` fixo nas cinco funções que estavam sem
+  (`categoria_por_valor`, `gerar_numero_simulacao`, `gerar_numero_contrato`,
+  `tocar_updated_at`, `verificar_lacunas_categorias`). Nenhuma é
+  `security definer`, então o risco era baixo — mas com o caminho solto, um
+  schema plantado na frente do `public` poderia sequestrar uma referência de
+  tabela dentro delas.
+- `handle_new_user` e `registrar_auditoria` deixaram de ser chamáveis pela API
+  REST. São funções de **gatilho**: o disparo não depende de EXECUTE (o
+  Postgres confere o privilégio ao criar o trigger, não a cada disparo) —
+  conferido na prática depois do revoke, com uma escrita em `clientes` gerando
+  auditoria e um cadastro em `auth.users` gerando o perfil.
+- `e_admin`, `e_gestor` e `meu_papel` saíram do papel `anon`. **`authenticated`
+  precisa continuar podendo executá-las**: as 23 policies de RLS que as usam
+  rodam com o privilégio de quem consulta. Revogar de `authenticated`
+  derrubaria a RLS inteira.
+
+> Cuidado com o padrão: `revoke ... from public` **não basta** neste banco. O
+> Supabase concede EXECUTE nominalmente a `anon` e `authenticated`, e tirar do
+> PUBLIC não mexe num grant nominal. Foi por isso que a primeira migração
+> precisou da segunda.
+
+Continua **em aberto** um aviso que não se resolve por SQL: a proteção contra
+senha vazada (checagem no HaveIBeenPwned) está desligada. Liga-se no painel do
+Supabase, em Authentication → Policies.
 
 ## Aproveitado do sistema anterior (não recriado)
 
